@@ -10,7 +10,11 @@ Atom is a finetuned LLAMA to create better LLMS through Pytorch Data!
 
 You can install the package using pip
 
-```python
+```bash
+pip install atom-torch
+
+#Or
+
 git clone https://github.com/jquesnelle/yarn
 cd Atom
 pip install -e .

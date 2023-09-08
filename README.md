@@ -25,7 +25,7 @@ pip install -e .
 To train the models, run `accelerate config` and enable DeepSpeed acceleration. `deepspeed/zero3.json` was the configuration file used for training.
 
 ```sh
-# ./train.sh
+# ./scripts/train.sh
 ```
 
 The tokenized training data is available on [Hugging Face](https://huggingface.co/datasets/emozilla/pg_books-tokenized-bos-eos-chunked-65536) and was derived from the [pg19](https://huggingface.co/datasets/emozilla/pg19) dataset.
@@ -35,8 +35,8 @@ The tokenized training data is available on [Hugging Face](https://huggingface.c
 To reproduce the evaluations, install [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) with `pip install git+https://github.com/EleutherAI/lm-evaluation-harness` and then run the two provided scripts.
 
 ```sh
-# ./eval.sh
-# ./eval-harness.sh
+# ./scripts/eval.sh
+# ./scripts/eval-harness.sh
 ```
 
 ### Citation

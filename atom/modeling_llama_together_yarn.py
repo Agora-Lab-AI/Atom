@@ -186,15 +186,20 @@ class FlashYaRNRotaryEmbedding(torch.nn.Module):
         self.dim = dim
         self.base = float(base)
         self.interleaved = interleaved
+        
         self.scaling_factor = scaling_factor
         self.max_position_embeddings = max_position_embeddings
-        self.original_max_position_embeddings = original_max_position_embeddings if original_max_position_embeddings else max_position_embeddings
+        self.original_max_position_embeddings = original_max_position_embeddings if \
+            original_max_position_embeddings else max_position_embeddings
+        
         self.extrapolation_factor = extrapolation_factor
         self.attn_factor = attn_factor
         self.beta_fast = beta_fast
+
         self.beta_slow = beta_slow
         self.pos_idx_in_fp32 = pos_idx_in_fp32
         self.mscale = float(_yarn_get_mscale(self.scaling_factor) * attn_factor) # Get n-d magnitude scaling corrected for interpolation
+        
         self.dynamic = dynamic
         self.finetuned = finetuned
 
@@ -249,7 +254,9 @@ class FlashYaRNRotaryEmbedding(torch.nn.Module):
                     scaling_factor = seqlen / self.original_max_position_embeddings
                 if scaling_factor:
                     self._compute_inv_freq(scaling_factor, device)
-                    self.mscale = float(_yarn_get_mscale(scaling_factor) * self.attn_factor)
+                    self.mscale = float(
+                        _yarn_get_mscale(scaling_factor) * self.attn_factor
+                    )
                 else:
                     self._compute_inv_freq_original(device)
 
@@ -289,6 +296,7 @@ class FlashYaRNRotaryEmbedding(torch.nn.Module):
         token in the batch.
         """
         self._update_cos_sin_cache(q.shape[1] + seqlen_offset, device=q.device, dtype=q.dtype)
+
         return apply_rotary_emb_func(
             q, self._cos_cached[seqlen_offset:], self._sin_cached[seqlen_offset:],
             self.interleaved, True # inplace=True
@@ -355,6 +363,7 @@ class FlashRotaryEmbedding(torch.nn.Module):
         self._seq_len_cached = 0
         self._cos_cached = None
         self._sin_cached = None
+
         self._cos_k_cached = None
         self._sin_k_cached = None
 
@@ -402,6 +411,7 @@ class FlashRotaryEmbedding(torch.nn.Module):
                 # We want the multiplication by scale to happen in fp32
                 self._cos_cached = (torch.cos(freqs) * scale).to(dtype)
                 self._sin_cached = (torch.sin(freqs) * scale).to(dtype)
+
                 self._cos_k_cached = (torch.cos(freqs) / scale).to(dtype)
                 self._sin_k_cached = (torch.sin(freqs) / scale).to(dtype)
 
@@ -435,9 +445,11 @@ class LlamaMLP(nn.Module):
         self.config = config
         self.hidden_size = config.hidden_size
         self.intermediate_size = config.intermediate_size
+
         self.gate_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=False)
         self.up_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=False)
         self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=False)
+
         self.act_fn = ACT2FN[config.hidden_act]
 
     def forward(self, x):
@@ -455,7 +467,9 @@ class LlamaMLP(nn.Module):
 
             intermediate_states = (self.act_fn(gate_proj) * up_proj).split(slice, dim=2)
             down_proj = [
-                F.linear(intermediate_states[i], down_proj_slices[i]) for i in range(self.config.pretraining_tp)
+                F.linear(intermediate_states[i], down_proj_slices[i]) for i in range(
+                    self.config.pretraining_tp
+                )
             ]
             down_proj = sum(down_proj)
         else:
@@ -914,6 +928,7 @@ class LlamaModel(LlamaPreTrainedModel):
         is_padded_inputs: Optional[bool] = False,
     ) -> Union[Tuple, BaseModelOutputWithPast]:
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
+        
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )

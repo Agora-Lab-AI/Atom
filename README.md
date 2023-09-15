@@ -1,7 +1,7 @@
 [![Multi-Modality](agorabanner.png)](https://discord.gg/qUtxnK2NMf)
 
 # Atom
-Atom is a finetuned LLAMA to create better LLMS through Pytorch Data!
+Atom is a finetuned fork of YARN LLAMA to create better LLMS through Pytorch Data!
 
 
 

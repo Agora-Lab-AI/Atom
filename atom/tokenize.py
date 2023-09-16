@@ -4,7 +4,27 @@ from itertools import chain
 
 from datasets import load_dataset
 
-from kosmosx.model import KosmosTokenizer
+from transformers import AutoTokenizer
+
+class LLamaTokenizer:
+    def __init__(self):
+        self.tokenizer= AutoTokenizer.from_pretrained(
+            "conceptofmind/Yarn-Llama-2-13b-64k",
+            eos_token="<eos>",
+            pad_token="<pad>",
+            extra_ids=0,
+            model_max_length=8192
+        )
+
+    def tokenize_texts(self, texts):
+        return self.tokenizer(texts, return_tensors='pt', padding=True, truncation=True).input_ids
+    
+    def decode(self, texts):
+        return self.tokenizer.decode(texts)
+    
+    def __len__(self):
+        num_tokens = len(self.tokenizer)
+        return num_tokens
 
 
 class BuildDataset:
@@ -20,7 +40,7 @@ class BuildDataset:
         self.NUM_CPU = multiprocessing.cpu_count()
         self.HF_ACCOUNT_REPO = hf_account
         self.DATASET_NAME = dataset_name
-        self.tokenizer = KosmosTokenizer.tokenize
+        self.tokenizer = LLamaTokenizer.tokenize_texts
 
     def tokenize_function(self, example):
         return self.tokenizer([t + self.tokenizer.eos_token for t in example["text"]])

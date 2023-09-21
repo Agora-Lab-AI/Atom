@@ -6,7 +6,7 @@ transformers>=4.28.1
 tqdm
 einops
 sentencepiece
-protobuf==3.19.6
+protobuf==4.24.3
 scikit-learn
 matplotlib
 pandas

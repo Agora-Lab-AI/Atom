@@ -28,6 +28,12 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.6"
 torch = "*"
+datasets = "*"
+transformers = "*"
+accelerate = "*"
+einops = "*"
+flash-attn = "*"
+
 
 
 [tool.poetry.dev-dependencies]

@@ -44,8 +44,8 @@ def main(args):
     def tokenize_function(example):
         return {
             "python_code": [tokenizer(code + tokenizer.eos_token) for code in example["python_code"]],
-            "repo_name": tokenizer(example["repo_name"] + tokenizer.eos_token),
-            "file_path": tokenizer(example["file_path"] + tokenizer.eos_token),
+            "repo_name": [tokenizer(name + tokenizer.eos_token) for name in example["repo_name"]],
+            "file_path": [tokenizer(path + tokenizer.eos_token) for path in example["file_path"]],
         }
     
     tokenized_dataset = train_dataset.map(

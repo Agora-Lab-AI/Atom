@@ -1,9 +1,11 @@
 import argparse
 import multiprocessing
 from itertools import chain
-from transformers import AutoTokenizer
-from datasets import load_dataset
+
 import logging
+from datasets import load_dataset
+from transformers import AutoTokenizer
+
 
 class LLamaTokenizer:
     def __init__(self):
@@ -26,69 +28,6 @@ class LLamaTokenizer:
         return num_tokens
 
 
-# class BuildDataset:
-#     def __init__(
-#             self, 
-#             seed=42, 
-#             seq_len=65536, 
-#             hf_account="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", 
-#             dataset_name="kye/all-lucidrain-python-3",
-#             dataset_names=["kye/all-lucidrain-python-3"],
-#         ):
-#         self.SEED = seed
-#         self.SEQ_LEN = seq_len
-#         self.NUM_CPU = multiprocessing.cpu_count()
-#         self.HF_ACCOUNT_REPO = hf_account
-#         self.DATASET_NAME = dataset_name
-#         self.DATASET_NAMES = dataset_names
-#         self.tokenizer = LLamaTokenizer.tokenize_texts
-
-#     def tokenize_function(self, example):
-#         return self.tokenizer([t + self.tokenizer.eos_token for t in example["text"]])
-
-#     def group_texts(self, examples):
-#         concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
-#         total_length = len(concatenated_examples[list(examples.keys())[0]])
-#         if total_length >= self.SEQ_LEN:
-#             total_length = (total_length // self.SEQ_LEN) * self.SEQ_LEN
-#         result = {
-#             k: [t[i : i + self.SEQ_LEN] for i in range(0, total_length, self.SEQ_LEN)]
-#             for k, t in concatenated_examples.items()
-#         }
-#         return result
-
-#     def build(self):
-#         for dataset_name in self.DATASET_NAMES:
-#             try:
-#                 logging.info(f"Processing dataset: {dataset_name}")
-#                 train_dataset = load_dataset(dataset_name, split="train", streaming=True)
-#                 tokenized_dataset = train_dataset.map(
-#                     self.tokenize_function,
-#                     batched=True,
-#                     # num_proc=self.NUM_CPU,
-#                     remove_columns=["text"],
-#                 )
-#                 train_tokenized_dataset = tokenized_dataset.map(
-#                     self.group_texts,
-#                     batched=True,
-#                     # num_proc=self.NUM_CPU,
-#                 )
-#                 train_tokenized_dataset.save_to_disk(f"{dataset_name}-tokenized")
-#                 train_tokenized_dataset.push_to_hub(self.HF_ACCOUNT_REPO)
-#                 logging.info(f"Finished processing dataset: {dataset_name}")
-#             except Exception as e:
-#                 logging.error(f"Error processing dataset {dataset_name}: {e}")
-
-# if __name__ == '__main__':
-#     parser = argparse.ArgumentParser(description="Process and push dataset to Hugging Face Hub")
-#     parser.add_argument("--seed", type=int, default=42, help="Random seed")
-#     parser.add_argument("--seq_len", type=int, default=65536, help="Sequence length for processing")
-#     parser.add_argument("--hf_account", type=str, default="YOUR HUGGINGFACE API KEY", help="Hugging Face account name and repo")
-#     parser.add_argument("--dataset_name", type=str, default="kye/all-lucidrain-python-3", help="Name of the dataset to process")
-#     parser.add_argument("--dataset_names", type=str, nargs='+', default=["kye/all-lucidrain-python-3"], help="Names of the datasets to process")
-#     args = parser.parse_args()
-#     dataset_builder = BuildDataset(seed=args.seed, seq_len=args.seq_len, hf_account=args.hf_account, dataset_names=args.dataset_names)
-#     dataset_builder.build()
 
 class CFG:
     SEED: int = 42
@@ -103,8 +42,12 @@ def main(args):
     train_dataset = load_dataset(CFG.DATASET_NAME, split="train")
 
     def tokenize_function(example):
-        return tokenizer([t + tokenizer.eos_token for t in example["python_code"]])
-
+        return {
+            "python_code": [tokenizer(code + tokenizer.eos_token) for code in example["python_code"]],
+            "repo_name": tokenizer(example["repo_name"] + tokenizer.eos_token),
+            "file_path": tokenizer(example["file_path"] + tokenizer.eos_token),
+        }
+    
     tokenized_dataset = train_dataset.map(
         tokenize_function,
         batched=True,
@@ -114,12 +57,14 @@ def main(args):
 
     block_size = CFG.SEQ_LEN
 
-    # Main data processing function that will concatenate all texts from our dataset and generate chunks of block_size.
+    # Main data processing function that will concatenate all texts from our dataset 
+    # and generate chunks of block_size.
     def group_texts(examples):
         # Concatenate all texts.
         concatenated_examples = {k: list(chain(*examples[k])) for k in examples.keys()}
         total_length = len(concatenated_examples[list(examples.keys())[0]])
-        # We drop the small remainder, we could add padding if the model supported it instead of this drop, you can
+        # We drop the small remainder, we could add padding if the model supported it 
+        # instead of this drop, you can
         # customize this part to your needs.
         if total_length >= block_size:
             total_length = (total_length // block_size) * block_size

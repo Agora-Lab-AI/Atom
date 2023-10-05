@@ -7,18 +7,21 @@ import wandb
 from accelerate import Accelerator
 from accelerate.utils import (
     # DummyOptim,
-    DummyScheduler,
     InitProcessGroupKwargs,
     set_seed,
 )
 from datasets import load_dataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import default_data_collator, set_seed
-from torch.optim import AdamW
+from transformers import (
+    default_data_collator,
+    get_linear_schedule_with_warmup,
+    set_seed,
+)
 
 from atom.configuration_llama import LlamaConfig
 from atom.modeling_llama_together_yarn import LlamaForCausalLM
+from atom.stable_adamw import StableAdamWUnfused
 
 
 def find_all_linear_names(model):
@@ -93,9 +96,13 @@ def finetune(args):
         model = get_peft_model(model, peft_config)
         model.print_trainable_parameters()
 
-    optim = AdamW(model.parameters(), lr=args.learning_rate)
-    scheduler = DummyScheduler(
+    #swap to adamw and linear scheduler
+    optim = StableAdamWUnfused(model.parameters(), lr=args.learning_rate)
+    
+    scheduler = get_linear_schedule_with_warmup(
         optim, num_training_steps=args.max_train_steps, num_warmup_steps=args.warmup_steps)
+    
+
     model, optim, train_loader, scheduler = accelerator.prepare(
         model, optim, train_loader, scheduler
     )
@@ -199,5 +206,5 @@ if __name__ == "__main__":
     args.add_argument("--model", type=str,
                       default="conceptofmind/Yarn-Llama-2-13b-64k")
     args.add_argument("--yarn-factor", type=float, default=16.0)
-    args.add_argument("--dataset", type=str, default="kye/all-lucidrain-code-python-tokenized-65536-1")
+    args.add_argument("--dataset", type=str, default="kye/all-lucidrain-code-python-tokenized-65536-1Z")
     finetune(args.parse_args())

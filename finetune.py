@@ -59,12 +59,15 @@ def finetune(args):
     )
     accelerator.print(f"Total GPUS: {accelerator.num_processes}")
 
+    #init llama from pretrained conceptofmind/Yarn-Llama-2-13b-64k
     config = LlamaConfig.from_pretrained(args.model)
+
     config.rope_scaling = {
         "type": "yarn",
         "factor": args.yarn_factor,
         "original_max_position_embeddings": 4096
     }
+
     config.max_position_embeddings = int(args.yarn_factor * 4096)
 
     model = LlamaForCausalLM.from_pretrained(
@@ -191,7 +194,7 @@ def finetune(args):
 
 if __name__ == "__main__":
     args = argparse.ArgumentParser()
-    args.add_argument("--batch-size", type=int, default=1)
+    args.add_argument("--batch-size", type=int, default=50)
     args.add_argument("--gradient-accumulate-every", type=int, default=8)
     args.add_argument("--resume-from-checkpoint", action="store_true")
     args.add_argument("--checkpointing-steps", type=int)
@@ -203,8 +206,7 @@ if __name__ == "__main__":
     args.add_argument("--learning-rate", type=float, default=2e-5)
     args.add_argument("--grad-norm", action="store_true")
     args.add_argument("--lora", action="store_true")
-    args.add_argument("--model", type=str,
-                      default="conceptofmind/Yarn-Llama-2-13b-64k")
+    args.add_argument("--model", type=str, default="conceptofmind/Yarn-Llama-2-13b-64k")
     args.add_argument("--yarn-factor", type=float, default=16.0)
     args.add_argument("--dataset", type=str, default="kye/all-lucidrain-code-python-tokenized-65536-1Z")
     finetune(args.parse_args())

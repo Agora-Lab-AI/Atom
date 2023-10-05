@@ -1,0 +1,19 @@
+resources:
+  accelerators: V100: 1  # 1x NVIDIA V100 GPU
+
+num_nodes: 1  # Number of VMs to launch
+
+# Working directory (optional) containing the project codebase.
+# Its contents are synced to ~/sky_workdir/ on the cluster.
+workdir: ~/atom
+
+# Commands to be run before executing the job.
+# Typical use: pip install -r requirements.txt, git clone, etc.
+setup: |
+  pip install -r requirements.txt
+
+# Commands to run as a job.
+# Typical use: launch the main program.
+run: |
+  cd atom
+  python finetune.py 

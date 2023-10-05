@@ -196,8 +196,7 @@ if __name__ == "__main__":
     args.add_argument("--grad-norm", action="store_true")
     args.add_argument("--lora", action="store_true")
     args.add_argument("--model", type=str,
-                      default="NousResearch/Llama-2-7b-hf")
+                      default="conceptofmind/Yarn-Llama-2-13b-64k")
     args.add_argument("--yarn-factor", type=float, default=16.0)
-    args.add_argument("--dataset", type=str, 
-                      default="emozilla/pg_books-tokenized-bos-eos-chunked-65536")
+    args.add_argument("--dataset", type=str, default="kye/all-lucidrain-code-python-tokenized-65536-1")
     finetune(args.parse_args())

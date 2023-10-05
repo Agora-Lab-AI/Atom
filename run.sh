@@ -9,3 +9,8 @@ accelerate launch finetune.py \
     --dataset kye/all-lucidrain-code-python-tokenized-65536-1 \
     --max-train-steps 200 \
     --seed 31337 \
+    --batch-size 32 \
+    --learning-rate 2e-5 \
+    --warmup-steps 100 \
+    --gradient-accumulate-everys 4 \
+    

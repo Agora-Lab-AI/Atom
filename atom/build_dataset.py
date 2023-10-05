@@ -36,9 +36,9 @@ class LLamaTokenizer:
 
 class CFG:
     SEED: int = 42
-    SEQ_LEN: int = 65536
+    SEQ_LEN: int = 8192
     NUM_CPU: int = multiprocessing.cpu_count()
-    HF_ACCOUNT_REPO: str = "kye/all-lucidrain-code-python-tokenized-65536-1"
+    HF_ACCOUNT_REPO: str = "kye/all-lucidrain-code-python-tokenized-65536"
     TOKENIZER: str = "conceptofmind/Yarn-Llama-2-13b-64k"
     DATASET_NAME: str = "kye/all-lucidrain-python-3"
 

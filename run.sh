@@ -8,5 +8,4 @@ accelerate launch finetune.py \
     --model NousResearch/Llama-2-13b-hf \
     --dataset kye/all-lucidrain-code-python-tokenized-65536-1 \
     --max-train-steps 200 \
-    # --scaling-factor 32 \
     --seed 31337 \

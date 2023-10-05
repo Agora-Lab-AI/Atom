@@ -12,5 +12,5 @@ accelerate launch finetune.py \
     --batch-size 32 \
     --learning-rate 2e-5 \
     --warmup-steps 100 \
-    --gradient-accumulate-everys 4 \
+    --gradient-accumulate-every 4 \
     

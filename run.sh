@@ -5,7 +5,7 @@
 accelerate launch finetune.py \
     --batch-size 32 \
     --gradient-accumulate-every 8 \
-    --output-dir /path/to/output_directory \
+    --output-dir output/atom-65k-pytorch \
     --wandb yarn \
     --seed 42 \
     --max-train-steps 400 \

@@ -1,1 +1,1 @@
-from atom.finetune import finetune
+from finetune import finetune

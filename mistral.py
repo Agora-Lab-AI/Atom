@@ -39,9 +39,10 @@ model = AutoModelForCausalLM.from_pretrained(base_model_id, quantization_config=
 
 tokenizer = AutoTokenizer.from_pretrained(
     base_model_id,
-    model_max_length=512,
+    model_max_length=8192,
     padding_side="left",
-    add_eos_token=True)
+    add_eos_token=True
+)
 
 tokenizer.pad_token = tokenizer.eos_token
 
@@ -49,7 +50,7 @@ def tokenize(prompt):
     result = tokenizer(
         prompt,
         truncation=True,
-        max_length=512,
+        max_length=8192,
         padding="max_length",
     )
     result["labels"] = result["input_ids"].copy()

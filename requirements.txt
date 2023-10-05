@@ -1,8 +1,8 @@
 accelerate
 datasets
 evaluate
-torch>=2
-transformers>=4.28.1
+torch
+transformers
 tqdm
 einops
 sentencepiece

@@ -1,8 +1,8 @@
 import argparse
+import logging
 import multiprocessing
 from itertools import chain
 
-import logging
 from datasets import load_dataset
 from transformers import AutoTokenizer
 
@@ -18,7 +18,12 @@ class LLamaTokenizer:
         )
 
     def tokenize_texts(self, texts):
-        return self.tokenizer(texts, return_tensors='pt', padding=True, truncation=True).input_ids
+        return self.tokenizer(
+            texts, 
+            return_tensors='pt', 
+            padding=True, 
+            truncation=True
+        ).input_ids
     
     def decode(self, texts):
         return self.tokenizer.decode(texts)
@@ -31,9 +36,9 @@ class LLamaTokenizer:
 
 class CFG:
     SEED: int = 42
-    SEQ_LEN: int = 8192
+    SEQ_LEN: int = 65536
     NUM_CPU: int = multiprocessing.cpu_count()
-    HF_ACCOUNT_REPO: str = "kye/all-lucidrain-code-python-tokenized-8192"
+    HF_ACCOUNT_REPO: str = "kye/all-lucidrain-code-python-tokenized-65536-1"
     TOKENIZER: str = "conceptofmind/Yarn-Llama-2-13b-64k"
     DATASET_NAME: str = "kye/all-lucidrain-python-3"
 
@@ -42,17 +47,13 @@ def main(args):
     train_dataset = load_dataset(CFG.DATASET_NAME, split="train")
 
     def tokenize_function(example):
-        return {
-            "python_code": [tokenizer(code + tokenizer.eos_token) for code in example["python_code"]],
-            "repo_name": [tokenizer(name + tokenizer.eos_token) for name in example["repo_name"]],
-            "file_path": [tokenizer(path + tokenizer.eos_token) for path in example["file_path"]],
-        }
+        return tokenizer([t + tokenizer.eos_token for t in example["python_code"]])
     
     tokenized_dataset = train_dataset.map(
         tokenize_function,
         batched=True,
         num_proc=CFG.NUM_CPU,
-        remove_columns=["python_code"],
+        remove_columns=["repo_name", "python_code", "file_path"],
     )
 
     block_size = CFG.SEQ_LEN

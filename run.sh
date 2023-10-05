@@ -9,4 +9,4 @@ accelerate launch finetune.py \
     --dataset kye/all-lucidrain-code-python-tokenized-65536-1 \
     --max-train-steps 200 \
     --scaling-factor 32 \
-    --seed 31337
+    --seed 31337 \

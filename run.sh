@@ -13,6 +13,6 @@ accelerate launch finetune.py \
     --learning-rate 2e-5 \
     --grad-norm \
     --lora \
-    --model kye/atom-65k-pytorc \
+    --model kye/atom-65k-pytorch \
     --yarn-factor 16.0 \
-    --dataset kye/all-lucidrain-code-python-tokenized-65536-1Z
+    --dataset kye/all-lucidrain-code-python-tokenized-65536-1

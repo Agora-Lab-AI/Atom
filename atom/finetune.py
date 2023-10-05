@@ -6,7 +6,7 @@ import torch
 import wandb
 from accelerate import Accelerator
 from accelerate.utils import (
-    DummyOptim,
+    # DummyOptim,
     DummyScheduler,
     InitProcessGroupKwargs,
     set_seed,
@@ -15,6 +15,7 @@ from datasets import load_dataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import default_data_collator, set_seed
+from torch.optim import AdamW
 
 from atom.configuration_llama import LlamaConfig
 from atom.modeling_llama_together_yarn import LlamaForCausalLM
@@ -92,7 +93,7 @@ def finetune(args):
         model = get_peft_model(model, peft_config)
         model.print_trainable_parameters()
 
-    optim = DummyOptim(model.parameters(), lr=args.learning_rate)
+    optim = AdamW(model.parameters(), lr=args.learning_rate)
     scheduler = DummyScheduler(
         optim, num_training_steps=args.max_train_steps, num_warmup_steps=args.warmup_steps)
     model, optim, train_loader, scheduler = accelerator.prepare(

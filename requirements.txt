@@ -12,3 +12,4 @@ matplotlib
 pandas
 numpy
 wandb
+deepspeed

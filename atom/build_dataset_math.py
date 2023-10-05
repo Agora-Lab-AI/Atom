@@ -36,24 +36,32 @@ class LLamaTokenizer:
 
 class CFG:
     SEED: int = 42
-    SEQ_LEN: int = 8192
+    SEQ_LEN: int = 16384
     NUM_CPU: int = multiprocessing.cpu_count()
-    HF_ACCOUNT_REPO: str = "kye/all-lucidrain-code-python-tokenized-65536"
-    TOKENIZER: str = "conceptofmind/Yarn-Llama-2-13b-64k"
+    HF_ACCOUNT_REPO: str = "kye/metamath-mistal-tokenized-16384"
+    TOKENIZER: str = "mistralai/Mistral-7B-v0.1"
     DATASET_NAME: str = "meta-math/MetaMathQA"
 
 def main(args):
     tokenizer = AutoTokenizer.from_pretrained(CFG.TOKENIZER)
     train_dataset = load_dataset(CFG.DATASET_NAME, split="train")
 
+    # This function will concatenate the values from the three columns for each example.
+    def concatenate_function(example):
+        concatenated_text = example["type"] + " " + example["response"] + " " + example["query"]
+        return {"text": concatenated_text}
+
+    # Apply the concatenate_function to the dataset.
+    concatenated_dataset = train_dataset.map(concatenate_function)
+
     def tokenize_function(example):
-        return tokenizer([t + tokenizer.eos_token for t in example["python_code"]])
-    
-    tokenized_dataset = train_dataset.map(
+        return tokenizer([t + tokenizer.eos_token for t in example["text"]])
+
+    tokenized_dataset = concatenated_dataset.map(
         tokenize_function,
         batched=True,
         num_proc=CFG.NUM_CPU,
-        remove_columns=["repo_name", "python_code", "file_path"],
+        remove_columns=["type", "response", "query", "text"],  # Ensure to remove the unnecessary columns.
     )
 
     block_size = CFG.SEQ_LEN

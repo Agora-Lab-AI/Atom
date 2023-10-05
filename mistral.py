@@ -21,13 +21,13 @@ fsdp_plugin = FullyShardedDataParallelPlugin(
 accelerator = Accelerator(fsdp_plugin=fsdp_plugin)
 
 
-#
+## load the dataset
 train_dataset = load_dataset('kye/metamath-mistal-tokenized-16384') #split='train')
 eval_dataset = load_dataset('kye/metamath-mistal-tokenized-16384')#split='validation')
 test_dataset = load_dataset('kye/metamath-mistal-tokenized-16384')#split='test')
 
 
-base_model_id = "mistralai/Mistral-7B-v0.1"
+base_model_id = "mistralai/Mistral-7B-Instruct-v0.1"
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
     bnb_4bit_use_double_quant=True,

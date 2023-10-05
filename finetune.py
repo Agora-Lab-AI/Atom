@@ -6,7 +6,6 @@ import torch
 import wandb
 from accelerate import Accelerator
 from accelerate.utils import (
-    # DummyOptim,
     InitProcessGroupKwargs,
     set_seed,
 )

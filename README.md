@@ -25,7 +25,7 @@ pip install -e .
 To train the models, run `accelerate config` and enable DeepSpeed acceleration. `deepspeed/zero3.json` was the configuration file used for training.
 
 ```sh
-# ./scripts/train.sh
+./run.sh
 ```
 
 The tokenized training data is available on [Hugging Face](https://huggingface.co/datasets/emozilla/pg_books-tokenized-bos-eos-chunked-65536) and was derived from the [pg19](https://huggingface.co/datasets/emozilla/pg19) dataset.

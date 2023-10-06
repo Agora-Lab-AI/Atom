@@ -18,6 +18,8 @@ pip install atom-torch
 - Then run accelerate launch `accelerate launch finetune.py`
 
 
+We're finetuning this [model](https://huggingface.co/NousResearch/Yarn-Llama-2-13b-64k) on this [dataset](https://huggingface.co/datasets/kye/all-lucidrain-code-python-tokenized-65536-1)
+
 ```sh
 ./run.sh
 ```

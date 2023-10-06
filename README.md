@@ -4,8 +4,6 @@
 Atom is a finetuned fork of YARN LLAMA to create better LLMS through Pytorch Data!
 
 
-
-
 ## Installation
 
 You can install the package using pip
@@ -16,7 +14,9 @@ pip install atom-torch
 
 ### Training
 
-To train the models, run `accelerate config` and enable DeepSpeed acceleration. `deepspeed/zero3.json` was the configuration file used for training.
+- To train the models, run `accelerate config` and enable DeepSpeed acceleration. `deepspeed/zero3.json` was the configuration file used for training.0
+- Then run accelerate launch `accelerate launch finetune.py`
+
 
 ```sh
 ./run.sh

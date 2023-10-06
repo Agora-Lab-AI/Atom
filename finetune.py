@@ -59,7 +59,7 @@ def finetune(args):
     accelerator.print(f"Total GPUS: {accelerator.num_processes}")
 
     #init llama from pretrained conceptofmind/Yarn-Llama-2-13b-64k
-    config = LlamaConfig.from_pretrained("conceptofmind/Yarn-Llama-2-13b-64k")
+    config = LlamaConfig.from_pretrained("NousResearch/Yarn-Llama-2-13b-64k")
 
     config.rope_scaling = {
         "type": "yarn",
@@ -70,7 +70,7 @@ def finetune(args):
     config.max_position_embeddings = int(args.yarn_factor * 4096)
 
     model = LlamaForCausalLM.from_pretrained(
-        "conceptofmind/Yarn-Llama-2-13b-64k",
+        "NousResearch/Yarn-Llama-2-13b-64k",
         torch_dtype=torch.bfloat16,
         config=config
     )

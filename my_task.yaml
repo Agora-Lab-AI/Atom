@@ -16,4 +16,4 @@ setup: |
 # Typical use: launch the main program.
 run: |
   cd atom
-  python finetune.py 
+  python accelerate launch finetune.py 

@@ -13,6 +13,6 @@ accelerate launch finetune.py \
     --learning-rate 2e-5 \
     --grad-norm \
     --lora \
-    --model conceptofmind/Yarn-Llama-2-13b-64k \
+    --model NousResearch/Yarn-Llama-2-13b-64k \
     --yarn-factor 16.0 \
     --dataset kye/all-lucidrain-code-python-tokenized-65536-1

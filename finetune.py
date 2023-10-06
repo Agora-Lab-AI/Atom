@@ -205,7 +205,7 @@ if __name__ == "__main__":
     args.add_argument("--learning-rate", type=float, default=2e-5)
     args.add_argument("--grad-norm", action="store_true")
     args.add_argument("--lora", action="store_true")
-    args.add_argument("--model", type=str, default="conceptofmind/Yarn-Llama-2-13b-64k")
+    args.add_argument("--model", type=str, default="NousResearch/Yarn-Llama-2-13b-64k")
     args.add_argument("--yarn-factor", type=float, default=16.0)
     args.add_argument("--dataset", type=str, default="kye/all-lucidrain-code-python-tokenized-65536-1")
     finetune(args.parse_args())

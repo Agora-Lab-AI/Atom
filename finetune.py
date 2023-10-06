@@ -197,7 +197,7 @@ if __name__ == "__main__":
     args.add_argument("--gradient-accumulate-every", type=int, default=8)
     args.add_argument("--resume-from-checkpoint", action="store_true")
     args.add_argument("--checkpointing-steps", type=int)
-    args.add_argument("--output-dir", type=str, required=True)
+    args.add_argument("--output-dir", type=str, required=True, default="output")
     args.add_argument("--wandb", type=str)
     args.add_argument("--seed", type=int, default=42)
     args.add_argument("--max-train-steps", type=int, default=400)

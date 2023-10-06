@@ -12,12 +12,6 @@ You can install the package using pip
 
 ```bash
 pip install atom-torch
-
-#Or
-
-git clone https://github.com/jquesnelle/yarn
-cd Atom
-pip install -e .
 ```
 
 ### Training
@@ -28,15 +22,7 @@ To train the models, run `accelerate config` and enable DeepSpeed acceleration. 
 ./run.sh
 ```
 
-The tokenized training data is available on [Hugging Face](https://huggingface.co/datasets/emozilla/pg_books-tokenized-bos-eos-chunked-65536) and was derived from the [pg19](https://huggingface.co/datasets/emozilla/pg19) dataset.
-
-### Evaluation
-
-To reproduce the evaluations, install [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness) with `pip install git+https://github.com/EleutherAI/lm-evaluation-harness` and then run the two provided scripts.
-
-```sh
-# ./scripts/eval.sh
-# ./scripts/eval-harness.sh
+- [Dataset](kye/all-lucidrain-code-python-tokenized-65536-1)
 ```
 
 ### Citation

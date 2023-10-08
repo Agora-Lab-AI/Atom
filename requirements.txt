@@ -16,3 +16,4 @@ deepspeed
 peft
 bitsandbytes
 flash-attn
+trl

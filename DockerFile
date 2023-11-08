@@ -1,0 +1,29 @@
+# Use an official NVIDIA CUDA image as a base image
+FROM nvidia/cuda:11.0-base-ubuntu20.04
+
+# Install Python and pip
+RUN apt-get update && apt-get install -y \
+    python3.8 \
+    python3-pip
+
+# Set Python 3.8 as the default
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1
+RUN update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
+
+# Set the working directory in the container to /app
+WORKDIR /app
+
+# Copy the requirements.txt file into the container
+COPY requirements.txt ./
+
+# Install any needed packages specified in requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the code into the container
+COPY . .
+
+# Define the command to run your app using CMD which defines your runtime
+CMD [ "python", "your_script.py" ]
+
+
+

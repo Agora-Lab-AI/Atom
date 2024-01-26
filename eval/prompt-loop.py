@@ -6,14 +6,23 @@ from model_loader import *
 
 def main(args):
     tokenizer = AutoTokenizer.from_pretrained(
-        args.model, model_max_length=sys.maxsize, trust_remote_code=True)
+        args.model, model_max_length=sys.maxsize, trust_remote_code=True
+    )
     tokenizer.pad_token = tokenizer.eos_token
 
     model = load_model_and_apply_patches(args.model, args)
 
-    pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, pad_token_id=tokenizer.eos_token_id,
-                    temperature=args.temperature, repetition_penalty=args.repetition_penalty,
-                    top_k=args.top_k, penalty_alpha=args.penalty_alpha, do_sample=args.temperature is not None)
+    pipe = pipeline(
+        "text-generation",
+        model=model,
+        tokenizer=tokenizer,
+        pad_token_id=tokenizer.eos_token_id,
+        temperature=args.temperature,
+        repetition_penalty=args.repetition_penalty,
+        top_k=args.top_k,
+        penalty_alpha=args.penalty_alpha,
+        do_sample=args.temperature is not None,
+    )
 
     while True:
         if args.input_file is None:
@@ -21,8 +30,9 @@ def main(args):
         else:
             input(f"Press enter to read {args.input_file} ")
             prompt_text = open(args.input_file, encoding="utf=8").read()
-        response = pipe(prompt_text, num_return_sequences=1, max_new_tokens=args.max_new_tokens)[
-            0]["generated_text"][len(prompt_text):]
+        response = pipe(
+            prompt_text, num_return_sequences=1, max_new_tokens=args.max_new_tokens
+        )[0]["generated_text"][len(prompt_text) :]
         print(f"< {response}")
 
 

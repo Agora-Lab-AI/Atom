@@ -24,25 +24,28 @@ def generate_prompt(n_garbage):
     garbage_prefix = garbage_inf[:n_garbage_prefix]
     garbage_suffix = garbage_inf[:n_garbage_suffix]
     pass_key = random.randint(1, 50000)
-    information_line = f"The pass key is {pass_key}. Remember it. {pass_key} is the pass key."
+    information_line = (
+        f"The pass key is {pass_key}. Remember it. {pass_key} is the pass key."
+    )
     final_question = "What is the pass key? The pass key is"
     lines = [
         task_description,
         garbage_prefix,
         information_line,
         garbage_suffix,
-        final_question
+        final_question,
     ]
     return "\n".join(lines), pass_key
 
 
 def test_model(pipe, prompt_text, pass_key):
-    response = pipe(prompt_text, num_return_sequences=1, max_new_tokens=10)[
-        0]["generated_text"][len(prompt_text):]
+    response = pipe(prompt_text, num_return_sequences=1, max_new_tokens=10)[0][
+        "generated_text"
+    ][len(prompt_text) :]
     assert f"The pass key is {pass_key}" in prompt_text
 
     try:
-        pass_key = int(re.search(r'\d+', response).group())
+        pass_key = int(re.search(r"\d+", response).group())
     except:
         pass_key = response[:20]
 
@@ -52,7 +55,11 @@ def test_model(pipe, prompt_text, pass_key):
 def main(args):
     models = [x[0] for x in args.model]
     tokenizer = AutoTokenizer.from_pretrained(
-        models[0], model_max_length=sys.maxsize, padding_side="right", trust_remote_code=True)
+        models[0],
+        model_max_length=sys.maxsize,
+        padding_side="right",
+        trust_remote_code=True,
+    )
 
     if args.fixed_length:
         lengths = [args.fixed_length]
@@ -60,8 +67,9 @@ def main(args):
         print(f"Prompt is {tokens[0]} tokens")
     else:
         if args.tokens_step:
-            tokens = [x for x in range(
-                args.min_tokens, args.max_tokens + 1, args.tokens_step)]
+            tokens = [
+                x for x in range(args.min_tokens, args.max_tokens + 1, args.tokens_step)
+            ]
         else:
             tokens = [args.min_tokens]
             while args.min_tokens < args.max_tokens:
@@ -89,8 +97,12 @@ def main(args):
 
         loaded = load_model_and_apply_patches(model, args)
 
-        pipe = pipeline("text-generation", model=loaded,
-                        tokenizer=tokenizer, pad_token_id=tokenizer.eos_token_id)
+        pipe = pipeline(
+            "text-generation",
+            model=loaded,
+            tokenizer=tokenizer,
+            pad_token_id=tokenizer.eos_token_id,
+        )
 
         result = [0] * len(lengths)
         for i, length in tenumerate(lengths, desc="Lengths", leave=False):

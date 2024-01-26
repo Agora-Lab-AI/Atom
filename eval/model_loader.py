@@ -7,19 +7,20 @@ def load_model(model, args):
     if args.custom_model:
         from atom.modeling_llama import LlamaForCausalLM
         from atom.configuration_llama import LlamaConfig
+
         model_cls = LlamaForCausalLM
         config_cls = LlamaConfig
     elif args.custom_model_together:
         from atom.modeling_llama_together_yarn import LlamaForCausalLM
         from atom.configuration_llama import LlamaConfig
+
         model_cls = LlamaForCausalLM
         config_cls = LlamaConfig
     else:
         model_cls = AutoModelForCausalLM
         config_cls = AutoConfig
 
-    config = config_cls.from_pretrained(
-        model, trust_remote_code=not args.custom_model)
+    config = config_cls.from_pretrained(model, trust_remote_code=not args.custom_model)
     if args.max_position_embeddings:
         config.max_position_embeddings = args.max_position_embeddings
     if args.factor:
@@ -30,20 +31,11 @@ def load_model(model, args):
         config.use_cache = True
     if args.custom_model or args.custom_model_together:
         if args.linear:
-            config.rope_scaling = {
-                "type": "linear",
-                "factor": args.linear
-            }
+            config.rope_scaling = {"type": "linear", "factor": args.linear}
         elif args.dynamic_ntk:
-            config.rope_scaling = {
-                "type": "dynamic",
-                "factor": args.dynamic_ntk
-            }
+            config.rope_scaling = {"type": "dynamic", "factor": args.dynamic_ntk}
         elif args.part_ntk:
-            config.rope_scaling = {
-                "type": "ntk-by-parts",
-                "factor": args.part_ntk
-            }
+            config.rope_scaling = {"type": "ntk-by-parts", "factor": args.part_ntk}
         elif args.yarn:
             config.rope_scaling = {
                 "type": "yarn",
@@ -53,9 +45,15 @@ def load_model(model, args):
         elif args.dynamic_yarn:
             config.rope_scaling = {
                 "type": "dynamic-yarn",
-                "factor": args.factor if args.factor else config.rope_scaling.get("factor", 1.0),
-                "original_max_position_embeddings": args.original_max_position_embeddings if args.original_max_position_embeddings else config.rope_scaling["original_max_position_embeddings"],
-                "finetuned": args.finetuned if args.finetuned else config.rope_scaling.get("finetuned", False)
+                "factor": args.factor
+                if args.factor
+                else config.rope_scaling.get("factor", 1.0),
+                "original_max_position_embeddings": args.original_max_position_embeddings
+                if args.original_max_position_embeddings
+                else config.rope_scaling["original_max_position_embeddings"],
+                "finetuned": args.finetuned
+                if args.finetuned
+                else config.rope_scaling.get("finetuned", False),
             }
         if args.flash_attention:
             config.use_flash_attention = args.flash_attention
@@ -64,6 +62,7 @@ def load_model(model, args):
             assert not args.custom_model and not args.custom_model_together
             from transformers.models.llama.modeling_llama import LlamaAttention
             from scaled_rope.LlamaReRoPE import forward_with_rerope
+
             LlamaAttention.forward = forward_with_rerope
 
     if args.load_in_8bit or args.load_in_4bit:
@@ -88,7 +87,7 @@ def load_model(model, args):
         device_map="auto",
         trust_remote_code=not args.custom_model,
         config=config,
-        quantization_config=quantization_config
+        quantization_config=quantization_config,
     )
 
     return loaded
@@ -131,71 +130,94 @@ def apply_patches(model, args):
                 patch_llama_for_dynamic_scaled_rotary_embeddings(model)
             else:
                 raise RuntimeError(
-                    f"Unsupported architecture {model.config.architectures} for dyanmic linear")
+                    f"Unsupported architecture {model.config.architectures} for dyanmic linear"
+                )
         elif args.dynamic_ntk:
             if "LlamaForCausalLM" in model.config.architectures:
                 patch_llama_for_dynamic_scaled_rotary_embeddings(
-                    model, ntk=args.dynamic_ntk)
+                    model, ntk=args.dynamic_ntk
+                )
             else:
                 raise RuntimeError(
-                    f"Unsupported architecture {model.config.architectures} for dyanmic ntk")
+                    f"Unsupported architecture {model.config.architectures} for dyanmic ntk"
+                )
         elif args.dynamic_part_ntk:
             if "LlamaForCausalLM" in model.config.architectures:
                 patch_llama_for_dynamic_part_ntk_rotary_embeddings(
-                    model, args.finetuned)
+                    model, args.finetuned
+                )
             elif "RWForCausalLM" in model.config.architectures:
                 patch_falcon_for_dynamic_part_ntk_rotary_embeddings(model)
             else:
                 raise RuntimeError(
-                    f"Unsupported architecture {model.config.architectures} for dyanmic part ntk")
+                    f"Unsupported architecture {model.config.architectures} for dyanmic part ntk"
+                )
         elif args.dynamic_yarn:
             if "LlamaForCausalLM" in model.config.architectures:
                 patch_llama_for_dynamic_yarn_rotary_embeddings(
-                    model, args.original_max_position_embeddings, args.finetuned)
+                    model, args.original_max_position_embeddings, args.finetuned
+                )
             else:
                 raise RuntimeError(
-                    f"Unsupported architecture {model.config.architectures} for dyanmic yarn")
+                    f"Unsupported architecture {model.config.architectures} for dyanmic yarn"
+                )
         elif args.ntk:
             if "GPTNeoXForCausalLM" in model.config.architectures:
-                patch_gptneox_for_ntk_scaled_rotary_embeddings(
-                    model, args.ntk)
+                patch_gptneox_for_ntk_scaled_rotary_embeddings(model, args.ntk)
             elif "LlamaForCausalLM" in model.config.architectures:
                 patch_llama_for_ntk_scaled_rotary_embeddings(model, args.ntk)
             else:
                 raise RuntimeError(
-                    f"Unsupported architecture {model.config.architectures} for ntk")
+                    f"Unsupported architecture {model.config.architectures} for ntk"
+                )
         elif args.linear:
             if "LlamaForCausalLM" in model.config.architectures:
                 patch_llama_for_linear_scaled_rotary_embeddings(
-                    model, scale=args.linear)
+                    model, scale=args.linear
+                )
             else:
                 raise RuntimeError(
-                    f"Unsupported architecture {model.config.architectures} for linear")
+                    f"Unsupported architecture {model.config.architectures} for linear"
+                )
         elif args.part_ntk:
             if "LlamaForCausalLM" in model.config.architectures:
                 patch_llama_for_part_ntk_scaled_rotary_embeddings(
-                    model, scale=args.part_ntk)
+                    model, scale=args.part_ntk
+                )
             else:
                 raise RuntimeError(
-                    f"Unsupported architecture {model.config.architectures} for part ntk")
+                    f"Unsupported architecture {model.config.architectures} for part ntk"
+                )
         elif args.yarn:
             if "LlamaForCausalLM" in model.config.architectures:
                 patch_llama_for_yarn_scaled_rotary_embeddings(
-                    model, scale=args.yarn, original_max_position_embeddings=args.original_max_position_embeddings)
+                    model,
+                    scale=args.yarn,
+                    original_max_position_embeddings=args.original_max_position_embeddings,
+                )
             else:
                 raise RuntimeError(
-                    f"Unsupported architecture {model.config.architectures} for YaRN")
+                    f"Unsupported architecture {model.config.architectures} for YaRN"
+                )
         elif args.rerope:
             if "LlamaForCausalLM" in model.config.architectures:
-                training_length = args.original_max_position_embeddings if args.original_max_position_embeddings else 4096
+                training_length = (
+                    args.original_max_position_embeddings
+                    if args.original_max_position_embeddings
+                    else 4096
+                )
                 window = args.rerope
-                patch_llama_for_rerope(model, training_length=training_length, window=window)
+                patch_llama_for_rerope(
+                    model, training_length=training_length, window=window
+                )
             else:
                 raise RuntimeError(
-                    f"Unsupported architecture {model.config.architectures} for YaRN")
+                    f"Unsupported architecture {model.config.architectures} for YaRN"
+                )
 
     if args.adapter:
         from peft import PeftModel
+
         model = PeftModel.from_pretrained(model, args.adapter)
         model = model.merge_and_unload()
 

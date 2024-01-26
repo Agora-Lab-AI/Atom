@@ -10,12 +10,19 @@ from model_loader import *
 
 
 def compute_perplexity(
-    encodings, model, tokenizer, add_start_token: bool = True, device=None, max_length=None, sliding_window=256, truncate=False, aggressive_memory=False
+    encodings,
+    model,
+    tokenizer,
+    add_start_token: bool = True,
+    device=None,
+    max_length=None,
+    sliding_window=256,
+    truncate=False,
+    aggressive_memory=False,
 ):
     r"""Compute "sliding window" perplexity on a dataset. Validated against the calculations reported in arXiv 2306.15595"""
     if device is not None:
-        assert device in ["gpu", "cpu",
-                          "cuda"], "device should be either gpu or cpu."
+        assert device in ["gpu", "cpu", "cuda"], "device should be either gpu or cpu."
         if device == "gpu":
             device = "cuda"
     else:
@@ -41,22 +48,20 @@ def compute_perplexity(
     pbar = tqdm(total=len(encoded_texts))
     nlls = []
     for encoding_index in range(0, len(encoded_texts)):
-
-        labels = torch.tensor(encoded_texts[encoding_index:encoding_index+1])
+        labels = torch.tensor(encoded_texts[encoding_index : encoding_index + 1])
         seq_len = labels.size(1)
 
         prev_end_loc = 0
         for begin_loc in range(0, seq_len, sliding_window):
-
             end_loc = min(begin_loc + max_tokenized_len, seq_len)
             trg_len = end_loc - prev_end_loc
             input_ids = labels[:, begin_loc:end_loc].to(device)
 
             if add_start_token:
                 bos_tokens_tensor = torch.tensor(
-                    [[tokenizer.bos_token_id]] * input_ids.size(dim=0)).to(device)
-                input_ids = torch.cat(
-                    [bos_tokens_tensor, input_ids], dim=1)
+                    [[tokenizer.bos_token_id]] * input_ids.size(dim=0)
+                ).to(device)
+                input_ids = torch.cat([bos_tokens_tensor, input_ids], dim=1)
 
             target_ids = input_ids.clone()
             target_ids[:, :-trg_len] = -100
@@ -64,7 +69,7 @@ def compute_perplexity(
             with torch.no_grad():
                 outputs = model(input_ids, labels=target_ids)
                 neg_log_likelihood = outputs.loss
-            
+
             if aggressive_memory:
                 outputs = None
                 input_ids = None
@@ -90,7 +95,8 @@ def compute_perplexity(
 def main(args):
     models = [x[0] for x in args.model]
     tokenizer = AutoTokenizer.from_pretrained(
-        models[0], model_max_length=sys.maxsize, trust_remote_code=True)
+        models[0], model_max_length=sys.maxsize, trust_remote_code=True
+    )
     tokenizer.pad_token = tokenizer.eos_token
 
     if args.tokenized:
@@ -98,10 +104,12 @@ def main(args):
             input_texts = datasets.load_from_disk(args.tokenized)
         except:
             input_texts = datasets.load_dataset(
-                args.tokenized, name=args.subset, split=args.split)
+                args.tokenized, name=args.subset, split=args.split
+            )
     else:
         input_texts = datasets.load_dataset(
-            args.dataset, name=args.subset, split=args.split)
+            args.dataset, name=args.subset, split=args.split
+        )
 
         def tokenize(example):
             tokenized = tokenizer(
@@ -125,13 +133,15 @@ def main(args):
 
     if args.dataset_min_tokens:
         input_texts = input_texts.filter(
-            lambda x: x["tokenized_len"] >= args.dataset_min_tokens)
+            lambda x: x["tokenized_len"] >= args.dataset_min_tokens
+        )
     if args.samples:
-        input_texts = input_texts[:args.samples]
+        input_texts = input_texts[: args.samples]
 
     if args.tokens_step:
-        tokens = [x for x in range(
-            args.min_tokens, args.max_tokens + 1, args.tokens_step)]
+        tokens = [
+            x for x in range(args.min_tokens, args.max_tokens + 1, args.tokens_step)
+        ]
     else:
         tokens = [args.min_tokens]
         while args.min_tokens < args.max_tokens:
@@ -149,10 +159,16 @@ def main(args):
 
         result = []
         for max_length in tokens:
-            ppl = compute_perplexity(model=loaded, tokenizer=tokenizer, encodings=input_texts,
-                                     add_start_token=tokenizer.bos_token is not None, max_length=max_length,
-                                     sliding_window=args.sliding_window, truncate=args.truncate,
-                                     aggressive_memory=args.aggressive_memory)['mean_perplexity']
+            ppl = compute_perplexity(
+                model=loaded,
+                tokenizer=tokenizer,
+                encodings=input_texts,
+                add_start_token=tokenizer.bos_token is not None,
+                max_length=max_length,
+                sliding_window=args.sliding_window,
+                truncate=args.truncate,
+                aggressive_memory=args.aggressive_memory,
+            )["mean_perplexity"]
             print(f"{model}: {max_length}={ppl}")
             result.append(ppl)
 

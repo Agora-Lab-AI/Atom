@@ -50,19 +50,25 @@ try:
         flash_attn_qkvpacked_func,
         flash_attn_varlen_kvpacked_func,
     )
+
     flash_attn_v2_installed = True
-    print('>>>> Flash Attention installed')
+    print(">>>> Flash Attention installed")
 except ImportError:
     flash_attn_v2_installed = False
-    raise ImportError('Please install Flash Attention: `pip install flash-attn --no-build-isolation`')
+    raise ImportError(
+        "Please install Flash Attention: `pip install flash-attn --no-build-isolation`"
+    )
 
 try:
     from flash_attn.layers.rotary import apply_rotary_emb_func
+
     flash_rope_installed = True
-    print('>>>> Flash RoPE installed')
+    print(">>>> Flash RoPE installed")
 except ImportError:
     flash_rope_installed = False
-    raise ImportError('Please install RoPE kernels: `pip install git+https://github.com/HazyResearch/flash-attention.git#subdirectory=csrc/rotary`')
+    raise ImportError(
+        "Please install RoPE kernels: `pip install git+https://github.com/HazyResearch/flash-attention.git#subdirectory=csrc/rotary`"
+    )
 
 
 logger = logging.get_logger(__name__)
@@ -70,14 +76,14 @@ logger = logging.get_logger(__name__)
 _CONFIG_FOR_DOC = "LlamaConfig"
 
 
-#@torch.jit.script
+# @torch.jit.script
 def rmsnorm_func(hidden_states, weight, variance_epsilon):
     input_dtype = hidden_states.dtype
     hidden_states = hidden_states.to(torch.float32)
     variance = hidden_states.pow(2).mean(-1, keepdim=True)
     hidden_states = hidden_states * torch.rsqrt(variance + variance_epsilon)
     return (weight * hidden_states).to(input_dtype)
-    
+
 
 class LlamaRMSNorm(nn.Module):
     def __init__(self, hidden_size, eps=1e-6):
@@ -91,34 +97,32 @@ class LlamaRMSNorm(nn.Module):
             torch.tensor(eps),
             persistent=False,
         )
-        
+
     def forward(self, hidden_states):
         return rmsnorm_func(hidden_states, self.weight, self.variance_epsilon)
 
 
 # Inverse dim formula to find dim based on number of rotations
 def _yarn_find_correction_dim(
-        num_rotations, 
-        dim, base=10000, 
-        max_position_embeddings=2048
-    ):
-    return (
-        dim * math.log(max_position_embeddings/(num_rotations * 2 * math.pi))
-        )/(2 * math.log(base))
+    num_rotations, dim, base=10000, max_position_embeddings=2048
+):
+    return (dim * math.log(max_position_embeddings / (num_rotations * 2 * math.pi))) / (
+        2 * math.log(base)
+    )
+
 
 # Find dim range bounds based on rotations
 def _yarn_find_correction_range(
-        low_rot, 
-        high_rot, 
-        dim, 
-        base=10000, 
-        max_position_embeddings=2048
-    ):
-    low = math.floor(_yarn_find_correction_dim(
-        low_rot, dim, base, max_position_embeddings))
-    high = math.ceil(_yarn_find_correction_dim(
-        high_rot, dim, base, max_position_embeddings))
-    return max(low, 0), min(high, dim-1)  # Clamp values just in case
+    low_rot, high_rot, dim, base=10000, max_position_embeddings=2048
+):
+    low = math.floor(
+        _yarn_find_correction_dim(low_rot, dim, base, max_position_embeddings)
+    )
+    high = math.ceil(
+        _yarn_find_correction_dim(high_rot, dim, base, max_position_embeddings)
+    )
+    return max(low, 0), min(high, dim - 1)  # Clamp values just in case
+
 
 def _yarn_linear_ramp_mask(min, max, dim):
     if min == max:
@@ -128,10 +132,12 @@ def _yarn_linear_ramp_mask(min, max, dim):
     ramp_func = torch.clamp(linear_func, 0, 1)
     return ramp_func
 
+
 def _yarn_get_mscale(scale=1):
     if scale <= 1:
         return 1.0
     return 0.1 * math.log(scale) + 1.0
+
 
 class FlashYaRNRotaryEmbedding(torch.nn.Module):
     """
@@ -150,56 +156,61 @@ class FlashYaRNRotaryEmbedding(torch.nn.Module):
     """
 
     def __init__(
-            self, 
-            dim: int, 
-            base=10000.0, 
-            interleaved=False,
-            scaling_factor=1.0, 
-            pos_idx_in_fp32=True,
-            max_position_embeddings=2048,
-            original_max_position_embeddings=2048, 
-            extrapolation_factor=1,
-            attn_factor=1, 
-            beta_fast=32, 
-            beta_slow=1,
-            dynamic=False, 
-            finetuned=False, 
-            device=None
-        ):
+        self,
+        dim: int,
+        base=10000.0,
+        interleaved=False,
+        scaling_factor=1.0,
+        pos_idx_in_fp32=True,
+        max_position_embeddings=2048,
+        original_max_position_embeddings=2048,
+        extrapolation_factor=1,
+        attn_factor=1,
+        beta_fast=32,
+        beta_slow=1,
+        dynamic=False,
+        finetuned=False,
+        device=None,
+    ):
         """
-            interleaved: if True, rotate pairs of even and odd dimensions (GPT-J style) instead
-                of 1st half and 2nd half (GPT-NeoX style).
-            pos_idx_in_fp32: if True, the position indices [0.0, ..., seqlen - 1] are in fp32,
-                otherwise they might be in lower precision.
-                This option was added because previously (before 2023-07-02), when we construct
-                the position indices, we use the dtype of self.inv_freq. In most cases this would
-                be fp32, but if the model is trained in pure bf16 (not mixed precision), then
-                self.inv_freq would be bf16, and the position indices are also in bf16.
-                Because of the limited precision of bf16 (e.g. 1995.0 is rounded to 2000.0), the
-                embeddings for some positions will coincide.
-                To maintain compatibility with models previously trained in pure bf16,
-                we add this option.
-            scaling_factor: RotaryEmbedding extended with YaRN scaling.
+        interleaved: if True, rotate pairs of even and odd dimensions (GPT-J style) instead
+            of 1st half and 2nd half (GPT-NeoX style).
+        pos_idx_in_fp32: if True, the position indices [0.0, ..., seqlen - 1] are in fp32,
+            otherwise they might be in lower precision.
+            This option was added because previously (before 2023-07-02), when we construct
+            the position indices, we use the dtype of self.inv_freq. In most cases this would
+            be fp32, but if the model is trained in pure bf16 (not mixed precision), then
+            self.inv_freq would be bf16, and the position indices are also in bf16.
+            Because of the limited precision of bf16 (e.g. 1995.0 is rounded to 2000.0), the
+            embeddings for some positions will coincide.
+            To maintain compatibility with models previously trained in pure bf16,
+            we add this option.
+        scaling_factor: RotaryEmbedding extended with YaRN scaling.
         """
         super().__init__()
 
         self.dim = dim
         self.base = float(base)
         self.interleaved = interleaved
-        
+
         self.scaling_factor = scaling_factor
         self.max_position_embeddings = max_position_embeddings
-        self.original_max_position_embeddings = original_max_position_embeddings if \
-            original_max_position_embeddings else max_position_embeddings
-        
+        self.original_max_position_embeddings = (
+            original_max_position_embeddings
+            if original_max_position_embeddings
+            else max_position_embeddings
+        )
+
         self.extrapolation_factor = extrapolation_factor
         self.attn_factor = attn_factor
         self.beta_fast = beta_fast
 
         self.beta_slow = beta_slow
         self.pos_idx_in_fp32 = pos_idx_in_fp32
-        self.mscale = float(_yarn_get_mscale(self.scaling_factor) * attn_factor) # Get n-d magnitude scaling corrected for interpolation
-        
+        self.mscale = float(
+            _yarn_get_mscale(self.scaling_factor) * attn_factor
+        )  # Get n-d magnitude scaling corrected for interpolation
+
         self.dynamic = dynamic
         self.finetuned = finetuned
 
@@ -212,37 +223,48 @@ class FlashYaRNRotaryEmbedding(torch.nn.Module):
         self._sin_cached = None
 
     def _compute_inv_freq(self, scaling_factor, device=None):
-        pos_freqs = self.base ** (torch.arange(0, self.dim, 2).float().to(device) / self.dim)
+        pos_freqs = self.base ** (
+            torch.arange(0, self.dim, 2).float().to(device) / self.dim
+        )
         inv_freq_extrapolation = 1.0 / pos_freqs
         inv_freq_interpolation = 1.0 / (scaling_factor * pos_freqs)
 
         low, high = _yarn_find_correction_range(
-            self.beta_fast, 
-            self.beta_slow, 
-            self.dim, 
-            self.base, 
-            self.original_max_position_embeddings
+            self.beta_fast,
+            self.beta_slow,
+            self.dim,
+            self.base,
+            self.original_max_position_embeddings,
         )
         inv_freq_mask = (
             1 - _yarn_linear_ramp_mask(low, high, self.dim // 2).float().to(device)
-        ) * self.extrapolation_factor # Get n-d rotational scaling corrected for extrapolation
-        inv_freq = inv_freq_interpolation * (
-            1 - inv_freq_mask
-        ) + inv_freq_extrapolation * inv_freq_mask
+        ) * self.extrapolation_factor  # Get n-d rotational scaling corrected for extrapolation
+        inv_freq = (
+            inv_freq_interpolation * (1 - inv_freq_mask)
+            + inv_freq_extrapolation * inv_freq_mask
+        )
         self.register_buffer("inv_freq", inv_freq, persistent=False)
 
     def _compute_inv_freq_original(self, device=None):
-        inv_freq = 1 / (self.base ** (torch.arange(0, self.dim, 2, device=device,
-                                                 dtype=torch.float32) / self.dim))
+        inv_freq = 1 / (
+            self.base
+            ** (
+                torch.arange(0, self.dim, 2, device=device, dtype=torch.float32)
+                / self.dim
+            )
+        )
         self.register_buffer("inv_freq", inv_freq, persistent=False)
 
     def _update_cos_sin_cache(self, seqlen, device=None, dtype=None):
         # Reset the tables if the sequence length has changed,
         # if we're on a new device (possibly due to tracing for instance),
         # or if we're switching from inference mode to training
-        if (seqlen > self._seq_len_cached or self._cos_cached.device != device
+        if (
+            seqlen > self._seq_len_cached
+            or self._cos_cached.device != device
             or self._cos_cached.dtype != dtype
-            or (self.training and self._cos_cached.is_inference())):
+            or (self.training and self._cos_cached.is_inference())
+        ):
             self._seq_len_cached = seqlen
 
             if self.dynamic:
@@ -282,27 +304,31 @@ class FlashYaRNRotaryEmbedding(torch.nn.Module):
             self._cos_cached = (torch.cos(freqs) * self.mscale).to(dtype)
             self._sin_cached = (torch.sin(freqs) * self.mscale).to(dtype)
 
-
     def forward(
-            self, 
-            q: torch.Tensor, 
-            k: torch.Tensor, 
-            seqlen_offset: int = 0
-        ) -> Tuple[torch.Tensor, torch.Tensor]:
+        self, q: torch.Tensor, k: torch.Tensor, seqlen_offset: int = 0
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         q: (batch, seqlen, nheads, headdim)
         k: (batch, seqlen, nheads, headdim)
         seqlen_offset: can be used in generation where the qkv being passed in is only the last
         token in the batch.
         """
-        self._update_cos_sin_cache(q.shape[1] + seqlen_offset, device=q.device, dtype=q.dtype)
+        self._update_cos_sin_cache(
+            q.shape[1] + seqlen_offset, device=q.device, dtype=q.dtype
+        )
 
         return apply_rotary_emb_func(
-            q, self._cos_cached[seqlen_offset:], self._sin_cached[seqlen_offset:],
-            self.interleaved, True # inplace=True
+            q,
+            self._cos_cached[seqlen_offset:],
+            self._sin_cached[seqlen_offset:],
+            self.interleaved,
+            True,  # inplace=True
         ), apply_rotary_emb_func(
-            k, self._cos_cached[seqlen_offset:], self._sin_cached[seqlen_offset:],
-            self.interleaved, True # inplace=True
+            k,
+            self._cos_cached[seqlen_offset:],
+            self._sin_cached[seqlen_offset:],
+            self.interleaved,
+            True,  # inplace=True
         )
 
 
@@ -322,29 +348,29 @@ class FlashRotaryEmbedding(torch.nn.Module):
     """
 
     def __init__(
-            self, 
-            dim: int, 
-            base=10000.0, 
-            interleaved=False, 
-            scale_base=None,
-            scaling_factor=1.0, 
-            pos_idx_in_fp32=True, 
-            device=None
-        ):
+        self,
+        dim: int,
+        base=10000.0,
+        interleaved=False,
+        scale_base=None,
+        scaling_factor=1.0,
+        pos_idx_in_fp32=True,
+        device=None,
+    ):
         """
-            interleaved: if True, rotate pairs of even and odd dimensions (GPT-J style) instead
-                of 1st half and 2nd half (GPT-NeoX style).
-            pos_idx_in_fp32: if True, the position indices [0.0, ..., seqlen - 1] are in fp32,
-                otherwise they might be in lower precision.
-                This option was added because previously (before 2023-07-02), when we construct
-                the position indices, we use the dtype of self.inv_freq. In most cases this would
-                be fp32, but if the model is trained in pure bf16 (not mixed precision), then
-                self.inv_freq would be bf16, and the position indices are also in bf16.
-                Because of the limited precision of bf16 (e.g. 1995.0 is rounded to 2000.0), the
-                embeddings for some positions will coincide.
-                To maintain compatibility with models previously trained in pure bf16,
-                we add this option.
-            scaling_factor: RotaryEmbedding extended with linear scaling.
+        interleaved: if True, rotate pairs of even and odd dimensions (GPT-J style) instead
+            of 1st half and 2nd half (GPT-NeoX style).
+        pos_idx_in_fp32: if True, the position indices [0.0, ..., seqlen - 1] are in fp32,
+            otherwise they might be in lower precision.
+            This option was added because previously (before 2023-07-02), when we construct
+            the position indices, we use the dtype of self.inv_freq. In most cases this would
+            be fp32, but if the model is trained in pure bf16 (not mixed precision), then
+            self.inv_freq would be bf16, and the position indices are also in bf16.
+            Because of the limited precision of bf16 (e.g. 1995.0 is rounded to 2000.0), the
+            embeddings for some positions will coincide.
+            To maintain compatibility with models previously trained in pure bf16,
+            we add this option.
+        scaling_factor: RotaryEmbedding extended with linear scaling.
         """
         super().__init__()
         self.dim = dim
@@ -356,8 +382,12 @@ class FlashRotaryEmbedding(torch.nn.Module):
         self.interleaved = interleaved
         self.scale_base = scale_base
         self.scaling_factor = scaling_factor
-        scale = ((torch.arange(0, dim, 2, device=device, dtype=torch.float32) + 0.4 * dim)
-                 / (1.4 * dim) if scale_base is not None else None)
+        scale = (
+            (torch.arange(0, dim, 2, device=device, dtype=torch.float32) + 0.4 * dim)
+            / (1.4 * dim)
+            if scale_base is not None
+            else None
+        )
         self.register_buffer("scale", scale)
 
         self._seq_len_cached = 0
@@ -368,17 +398,24 @@ class FlashRotaryEmbedding(torch.nn.Module):
         self._sin_k_cached = None
 
     def _compute_inv_freq(self, device=None):
-        return 1 / (self.base ** (torch.arange(0, self.dim, 2, device=device,
-                                                 dtype=torch.float32) / self.dim))
-
+        return 1 / (
+            self.base
+            ** (
+                torch.arange(0, self.dim, 2, device=device, dtype=torch.float32)
+                / self.dim
+            )
+        )
 
     def _update_cos_sin_cache(self, seqlen, device=None, dtype=None):
         # Reset the tables if the sequence length has changed,
         # if we're on a new device (possibly due to tracing for instance),
         # or if we're switching from inference mode to training
-        if (seqlen > self._seq_len_cached or self._cos_cached.device != device
+        if (
+            seqlen > self._seq_len_cached
+            or self._cos_cached.device != device
             or self._cos_cached.dtype != dtype
-            or (self.training and self._cos_cached.is_inference())):
+            or (self.training and self._cos_cached.is_inference())
+        ):
             self._seq_len_cached = seqlen
             # We want fp32 here, not self.inv_freq.dtype, since the model could be loaded in bf16
             # And the output of arange can be quite large, so bf16 would lose a lot of precision.
@@ -405,8 +442,12 @@ class FlashRotaryEmbedding(torch.nn.Module):
                 self._cos_cached = torch.cos(freqs).to(dtype)
                 self._sin_cached = torch.sin(freqs).to(dtype)
             else:
-                power = ((torch.arange(seqlen, dtype=self.scale.dtype, device=self.scale.device)
-                          - seqlen // 2) / self.scale_base)
+                power = (
+                    torch.arange(
+                        seqlen, dtype=self.scale.dtype, device=self.scale.device
+                    )
+                    - seqlen // 2
+                ) / self.scale_base
                 scale = self.scale.to(device=power.device) ** power.unsqueeze(-1)
                 # We want the multiplication by scale to happen in fp32
                 self._cos_cached = (torch.cos(freqs) * scale).to(dtype)
@@ -416,28 +457,34 @@ class FlashRotaryEmbedding(torch.nn.Module):
                 self._sin_k_cached = (torch.sin(freqs) / scale).to(dtype)
 
     def forward(
-            self, 
-            q: torch.Tensor, 
-            k: torch.Tensor, 
-            seqlen_offset: int = 0
-        ) -> Tuple[torch.Tensor, torch.Tensor]:
+        self, q: torch.Tensor, k: torch.Tensor, seqlen_offset: int = 0
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         q: (batch, seqlen, nheads, headdim)
         k: (batch, seqlen, nheads, headdim)
         seqlen_offset: can be used in generation where the qkv being passed in is only the last
         token in the batch.
         """
-        self._update_cos_sin_cache(q.shape[1] + seqlen_offset, device=q.device, dtype=q.dtype)
+        self._update_cos_sin_cache(
+            q.shape[1] + seqlen_offset, device=q.device, dtype=q.dtype
+        )
         if self.scale is None:
             return apply_rotary_emb_func(
-                q, self._cos_cached[seqlen_offset:], self._sin_cached[seqlen_offset:],
-                self.interleaved, True # inplace=True
+                q,
+                self._cos_cached[seqlen_offset:],
+                self._sin_cached[seqlen_offset:],
+                self.interleaved,
+                True,  # inplace=True
             ), apply_rotary_emb_func(
-                k, self._cos_cached[seqlen_offset:], self._sin_cached[seqlen_offset:],
-                self.interleaved, True # inplace=True
+                k,
+                self._cos_cached[seqlen_offset:],
+                self._sin_cached[seqlen_offset:],
+                self.interleaved,
+                True,  # inplace=True
             )
         else:
             assert False
+
 
 class LlamaMLP(nn.Module):
     def __init__(self, config):
@@ -460,22 +507,31 @@ class LlamaMLP(nn.Module):
             down_proj_slices = self.down_proj.weight.split(slice, dim=1)
 
             gate_proj = torch.cat(
-                [F.linear(x, gate_proj_slices[i]) for i in range(self.config.pretraining_tp)], dim=-1
+                [
+                    F.linear(x, gate_proj_slices[i])
+                    for i in range(self.config.pretraining_tp)
+                ],
+                dim=-1,
             )
             up_proj = torch.cat(
-                [F.linear(x, up_proj_slices[i]) for i in range(self.config.pretraining_tp)], dim=-1)
+                [
+                    F.linear(x, up_proj_slices[i])
+                    for i in range(self.config.pretraining_tp)
+                ],
+                dim=-1,
+            )
 
             intermediate_states = (self.act_fn(gate_proj) * up_proj).split(slice, dim=2)
             down_proj = [
-                F.linear(intermediate_states[i], down_proj_slices[i]) for i in range(
-                    self.config.pretraining_tp
-                )
+                F.linear(intermediate_states[i], down_proj_slices[i])
+                for i in range(self.config.pretraining_tp)
             ]
             down_proj = sum(down_proj)
         else:
             down_proj = self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
 
         return down_proj
+
 
 @torch.jit.script
 def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
@@ -486,7 +542,9 @@ def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     batch, slen, _, num_key_value_heads, head_dim = hidden_states.shape
     if n_rep == 1:
         return hidden_states
-    hidden_states = hidden_states[:, :, :, :, None, :].expand(batch, slen, 2, num_key_value_heads, n_rep, head_dim)
+    hidden_states = hidden_states[:, :, :, :, None, :].expand(
+        batch, slen, 2, num_key_value_heads, n_rep, head_dim
+    )
     return hidden_states.reshape(batch, slen, 2, num_key_value_heads * n_rep, head_dim)
 
 
@@ -510,33 +568,25 @@ class LlamaAttention(nn.Module):
                 f" and `num_heads`: {self.num_heads})."
             )
         self.q_proj = nn.Linear(
-            self.hidden_size, 
-            self.num_heads * self.head_dim, 
-            bias=False
+            self.hidden_size, self.num_heads * self.head_dim, bias=False
         )
         self.k_proj = nn.Linear(
-            self.hidden_size, 
-            self.num_key_value_heads * self.head_dim, 
-            bias=False
+            self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False
         )
 
         self.v_proj = nn.Linear(
-            self.hidden_size, 
-            self.num_key_value_heads * self.head_dim, 
-            bias=False
+            self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False
         )
 
         self.o_proj = nn.Linear(
-            self.num_heads * self.head_dim, 
-            self.hidden_size, 
-            bias=False
+            self.num_heads * self.head_dim, self.hidden_size, bias=False
         )
 
         self.register_buffer(
             "norm_factor",
-            torch.sqrt(
-                torch.tensor(self.head_dim, dtype=torch.float32)
-                ).to(torch.get_default_dtype()),
+            torch.sqrt(torch.tensor(self.head_dim, dtype=torch.float32)).to(
+                torch.get_default_dtype()
+            ),
             persistent=False,
         )
 
@@ -547,28 +597,36 @@ class LlamaAttention(nn.Module):
             scaling_type = self.config.rope_scaling["type"]
             scaling_factor = self.config.rope_scaling["factor"]
         if scaling_type == "yarn" or scaling_type == "dynamic-yarn":
-            original_max_position_embeddings = self.config.rope_scaling["original_max_position_embeddings"]
+            original_max_position_embeddings = self.config.rope_scaling[
+                "original_max_position_embeddings"
+            ]
 
             self.rotary_emb = FlashYaRNRotaryEmbedding(
-                self.head_dim, base=self.rope_theta, interleaved=False, scaling_factor=scaling_factor,
+                self.head_dim,
+                base=self.rope_theta,
+                interleaved=False,
+                scaling_factor=scaling_factor,
                 max_position_embeddings=self.max_position_embeddings,
                 original_max_position_embeddings=original_max_position_embeddings,
-                dynamic=scaling_type.startswith("dynamic"), finetuned=self.config.rope_scaling.get("finetuned", False)
+                dynamic=scaling_type.startswith("dynamic"),
+                finetuned=self.config.rope_scaling.get("finetuned", False),
             )
         elif scaling_type == "linear":
             self.rotary_emb = FlashRotaryEmbedding(
-                self.head_dim, base=self.rope_theta, interleaved=False, scaling_factor=scaling_factor,
+                self.head_dim,
+                base=self.rope_theta,
+                interleaved=False,
+                scaling_factor=scaling_factor,
             )
         else:
             raise RuntimeError(f"Unknown scaling type {scaling_type}")
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
-        return tensor.view(
-            bsz, 
-            seq_len, 
-            self.num_heads, 
-            self.head_dim
-        ).transpose(1, 2).contiguous()
+        return (
+            tensor.view(bsz, seq_len, self.num_heads, self.head_dim)
+            .transpose(1, 2)
+            .contiguous()
+        )
 
     def forward(
         self,
@@ -600,84 +658,104 @@ class LlamaAttention(nn.Module):
             key_slices = self.k_proj.weight.split(key_value_slicing, dim=0)
             value_slices = self.v_proj.weight.split(key_value_slicing, dim=0)
 
-            q = [F.linear
-                 (hidden_states, query_slices[i]) for i in range(self.config.pretraining_tp)]
+            q = [
+                F.linear(hidden_states, query_slices[i])
+                for i in range(self.config.pretraining_tp)
+            ]
             q = torch.cat(q, dim=-1)
 
-            k = [F.linear(hidden_states, key_slices[i]) for i in range(self.config.pretraining_tp)]
+            k = [
+                F.linear(hidden_states, key_slices[i])
+                for i in range(self.config.pretraining_tp)
+            ]
             k = torch.cat(k, dim=-1)
 
-            v = [F.linear(hidden_states, value_slices[i]) for i in range(self.config.pretraining_tp)]
+            v = [
+                F.linear(hidden_states, value_slices[i])
+                for i in range(self.config.pretraining_tp)
+            ]
             v = torch.cat(v, dim=-1)
 
         else:
             q = self.q_proj(hidden_states)
             k = self.k_proj(hidden_states)
-            v = self.v_proj(hidden_states) 
+            v = self.v_proj(hidden_states)
 
         q = q.view(bsz, q_len, self.num_heads, self.head_dim)
         k = k.view(bsz, q_len, self.num_key_value_heads, self.head_dim)
         v = v.view(bsz, q_len, self.num_key_value_heads, self.head_dim)
-        
+
         q, k = self.rotary_emb(q, k, past_len)
-        
+
         kv = torch.stack([k, v], 2)
         kv = repeat_kv(kv, self.num_key_value_groups)
 
         # Cache QKV values
         if has_layer_past:
-            new_len = past_len+q.size(1)
+            new_len = past_len + q.size(1)
             if new_len > past_kv.size(1):
                 past_kv = torch.cat(
-                    [past_kv, torch.empty(
-                        bsz, 
-                        256, 
-                        2, 
-                        kv.size(3), 
-                        kv.size(4), 
-                        dtype=kv.dtype, 
-                        device=kv.device
-                    )], 1
+                    [
+                        past_kv,
+                        torch.empty(
+                            bsz,
+                            256,
+                            2,
+                            kv.size(3),
+                            kv.size(4),
+                            dtype=kv.dtype,
+                            device=kv.device,
+                        ),
+                    ],
+                    1,
                 )
             past_kv[:, past_len:new_len] = kv
             kv = past_kv[:, :new_len]
         else:
             past_kv = kv
 
-        past_key_value = (past_kv, past_len+q.size(1)) if use_cache else None
+        past_key_value = (past_kv, past_len + q.size(1)) if use_cache else None
 
         if is_padded_inputs:
-
             # varlen, ignore padding tokens, efficient for large batch with many paddings
 
             assert attention_mask is not None
-            
-            unpadded_kv, indices_k, cu_seqlens_k, max_seqlen_k = unpad_input(kv, attention_mask)
-            unpadded_q, indices_q, cu_seqlens_q, max_seqlen_q = unpad_input(q, attention_mask[:, -q.size(1):])
+
+            unpadded_kv, indices_k, cu_seqlens_k, max_seqlen_k = unpad_input(
+                kv, attention_mask
+            )
+            unpadded_q, indices_q, cu_seqlens_q, max_seqlen_q = unpad_input(
+                q, attention_mask[:, -q.size(1) :]
+            )
             attn_outputs = flash_attn_varlen_kvpacked_func(
-                unpadded_q, unpadded_kv, cu_seqlens_q, cu_seqlens_k, 
-                max_seqlen_q, max_seqlen_k,
-                dropout_p=0.0, softmax_scale=1.0/self.norm_factor, 
-                causal=(not has_layer_past), return_attn_probs=output_attentions
+                unpadded_q,
+                unpadded_kv,
+                cu_seqlens_q,
+                cu_seqlens_k,
+                max_seqlen_q,
+                max_seqlen_k,
+                dropout_p=0.0,
+                softmax_scale=1.0 / self.norm_factor,
+                causal=(not has_layer_past),
+                return_attn_probs=output_attentions,
             )
 
             attn_output = attn_outputs[0] if output_attentions else attn_outputs
-            attn_output = pad_input(
-                attn_output, indices_q, bsz, max_seqlen_q
-            ).reshape(bsz, q_len, h_size)
+            attn_output = pad_input(attn_output, indices_q, bsz, max_seqlen_q).reshape(
+                bsz, q_len, h_size
+            )
             attn_weights = attn_outputs[2] if output_attentions else None
-            
-        else:
 
+        else:
             # no padding tokens, more efficient
-            
+
             attn_outputs = flash_attn_kvpacked_func(
-                q, 
-                kv, 
-                dropout_p=0.0, 
-                softmax_scale=1.0/self.norm_factor, 
-                causal=(not has_layer_past), 
-                return_attn_probs=output_attentions
+                q,
+                kv,
+                dropout_p=0.0,
+                softmax_scale=1.0 / self.norm_factor,
+                causal=(not has_layer_past),
+                return_attn_probs=output_attentions,
             )
 
             attn_output = attn_outputs[0] if output_attentions else attn_outputs
@@ -686,15 +764,16 @@ class LlamaAttention(nn.Module):
 
         if self.config.pretraining_tp > 1:
             attn_output = attn_output.split(
-                self.hidden_size // self.config.pretraining_tp, 
-                dim=2
+                self.hidden_size // self.config.pretraining_tp, dim=2
             )
             o_proj_slices = self.o_proj.weight.split(
-                self.hidden_size // self.config.pretraining_tp, 
-                dim=1
+                self.hidden_size // self.config.pretraining_tp, dim=1
             )
             attn_output = sum(
-                [F.linear(attn_output[i], o_proj_slices[i]) for i in range(self.config.pretraining_tp)]
+                [
+                    F.linear(attn_output[i], o_proj_slices[i])
+                    for i in range(self.config.pretraining_tp)
+                ]
             )
         else:
             attn_output = self.o_proj(attn_output)
@@ -713,8 +792,7 @@ class LlamaDecoderLayer(nn.Module):
         self.mlp = LlamaMLP(config)
         self.input_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.post_attention_layernorm = LlamaRMSNorm(
-            config.hidden_size, 
-            eps=config.rms_norm_eps
+            config.hidden_size, eps=config.rms_norm_eps
         )
 
     def forward(
@@ -726,7 +804,9 @@ class LlamaDecoderLayer(nn.Module):
         is_padded_inputs: Optional[bool] = False,
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = False,
-    ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
+    ) -> Tuple[
+        torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]
+    ]:
         """
         Args:
             hidden_states (`torch.FloatTensor`): input to the layer of shape `(batch, seq_len, embed_dim)`
@@ -899,8 +979,12 @@ class LlamaModel(LlamaPreTrainedModel):
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
 
-        self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
-        self.layers = nn.ModuleList([LlamaDecoderLayer(config) for _ in range(config.num_hidden_layers)])
+        self.embed_tokens = nn.Embedding(
+            config.vocab_size, config.hidden_size, self.padding_idx
+        )
+        self.layers = nn.ModuleList(
+            [LlamaDecoderLayer(config) for _ in range(config.num_hidden_layers)]
+        )
         self.norm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
         self.gradient_checkpointing = False
@@ -927,24 +1011,36 @@ class LlamaModel(LlamaPreTrainedModel):
         return_dict: Optional[bool] = None,
         is_padded_inputs: Optional[bool] = False,
     ) -> Union[Tuple, BaseModelOutputWithPast]:
-        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
-        
+        output_attentions = (
+            output_attentions
+            if output_attentions is not None
+            else self.config.output_attentions
+        )
+
         output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+            output_hidden_states
+            if output_hidden_states is not None
+            else self.config.output_hidden_states
         )
         use_cache = use_cache if use_cache is not None else self.config.use_cache
 
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        return_dict = (
+            return_dict if return_dict is not None else self.config.use_return_dict
+        )
 
         # retrieve input_ids and inputs_embeds
         if input_ids is not None and inputs_embeds is not None:
-            raise ValueError("You cannot specify both decoder_input_ids and decoder_inputs_embeds at the same time")
+            raise ValueError(
+                "You cannot specify both decoder_input_ids and decoder_inputs_embeds at the same time"
+            )
         elif input_ids is not None:
             batch_size, seq_length = input_ids.shape
         elif inputs_embeds is not None:
             batch_size, seq_length, _ = inputs_embeds.shape
         else:
-            raise ValueError("You have to specify either decoder_input_ids or decoder_inputs_embeds")
+            raise ValueError(
+                "You have to specify either decoder_input_ids or decoder_inputs_embeds"
+            )
 
         seq_length_with_past = seq_length
         past_key_values_length = 0
@@ -954,7 +1050,7 @@ class LlamaModel(LlamaPreTrainedModel):
             seq_length_with_past = seq_length_with_past + past_key_values_length
 
         position_ids = None
-        
+
         if inputs_embeds is None:
             inputs_embeds = self.embed_tokens(input_ids)
 
@@ -976,7 +1072,9 @@ class LlamaModel(LlamaPreTrainedModel):
             if output_hidden_states:
                 all_hidden_states += (hidden_states,)
 
-            past_key_value = past_key_values[idx] if past_key_values is not None else None
+            past_key_value = (
+                past_key_values[idx] if past_key_values is not None else None
+            )
 
             if self.gradient_checkpointing and self.training:
 
@@ -993,7 +1091,7 @@ class LlamaModel(LlamaPreTrainedModel):
                     attention_mask,
                     position_ids,
                     None,
-                    is_padded_inputs
+                    is_padded_inputs,
                 )
             else:
                 layer_outputs = decoder_layer(
@@ -1022,7 +1120,11 @@ class LlamaModel(LlamaPreTrainedModel):
 
         next_cache = next_decoder_cache if use_cache else None
         if not return_dict:
-            return tuple(v for v in [hidden_states, next_cache, all_hidden_states, all_self_attns] if v is not None)
+            return tuple(
+                v
+                for v in [hidden_states, next_cache, all_hidden_states, all_self_attns]
+                if v is not None
+            )
         return BaseModelOutputWithPast(
             last_hidden_state=hidden_states,
             past_key_values=next_cache,
@@ -1062,7 +1164,9 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         return self.model
 
     @add_start_docstrings_to_model_forward(LLAMA_INPUTS_DOCSTRING)
-    @replace_return_docstrings(output_type=CausalLMOutputWithPast, config_class=_CONFIG_FOR_DOC)
+    @replace_return_docstrings(
+        output_type=CausalLMOutputWithPast, config_class=_CONFIG_FOR_DOC
+    )
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -1103,14 +1207,24 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         "Hey, are you conscious? Can you talk to me?\nI'm not conscious, but I can talk to you."
         ```"""
 
-        output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
-        output_hidden_states = (
-            output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
+        output_attentions = (
+            output_attentions
+            if output_attentions is not None
+            else self.config.output_attentions
         )
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        output_hidden_states = (
+            output_hidden_states
+            if output_hidden_states is not None
+            else self.config.output_hidden_states
+        )
+        return_dict = (
+            return_dict if return_dict is not None else self.config.use_return_dict
+        )
 
-        is_padded_inputs = ((attention_mask is not None) and (not attention_mask.all().item()))
-        
+        is_padded_inputs = (attention_mask is not None) and (
+            not attention_mask.all().item()
+        )
+
         # decoder outputs consists of (dec_features, layer_state, dec_hidden, dec_attn)
         outputs = self.model(
             input_ids=input_ids,
@@ -1127,8 +1241,13 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
         hidden_states = outputs[0]
         if self.config.pretraining_tp > 1:
-            lm_head_slices = self.lm_head.weight.split(self.vocab_size // self.config.pretraining_tp, dim=0)
-            logits = [F.linear(hidden_states, lm_head_slices[i]) for i in range(self.config.pretraining_tp)]
+            lm_head_slices = self.lm_head.weight.split(
+                self.vocab_size // self.config.pretraining_tp, dim=0
+            )
+            logits = [
+                F.linear(hidden_states, lm_head_slices[i])
+                for i in range(self.config.pretraining_tp)
+            ]
             logits = torch.cat(logits, dim=-1)
         else:
             logits = self.lm_head(hidden_states)
@@ -1160,7 +1279,12 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         )
 
     def prepare_inputs_for_generation(
-        self, input_ids, past_key_values=None, attention_mask=None, inputs_embeds=None, **kwargs
+        self,
+        input_ids,
+        past_key_values=None,
+        attention_mask=None,
+        inputs_embeds=None,
+        **kwargs,
     ):
         if past_key_values:
             input_ids = input_ids[:, -1:]
@@ -1179,7 +1303,9 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 "past_key_values": past_key_values,
                 "use_cache": kwargs.get("use_cache"),
                 "attention_mask": attention_mask,
-                "is_padded_inputs": ((attention_mask is not None) and (not attention_mask.all().item()))
+                "is_padded_inputs": (
+                    (attention_mask is not None) and (not attention_mask.all().item())
+                ),
             }
         )
         return model_inputs
@@ -1189,7 +1315,10 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         reordered_past = ()
         for layer_past in past_key_values:
             reordered_past += (
-                tuple(past_state.index_select(0, beam_idx.to(past_state.device)) for past_state in layer_past),
+                tuple(
+                    past_state.index_select(0, beam_idx.to(past_state.device))
+                    for past_state in layer_past
+                ),
             )
         return reordered_past
 
@@ -1245,7 +1374,9 @@ class LlamaForSequenceClassification(LlamaPreTrainedModel):
             config.num_labels - 1]`. If `config.num_labels == 1` a regression loss is computed (Mean-Square loss), If
             `config.num_labels > 1` a classification loss is computed (Cross-Entropy).
         """
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        return_dict = (
+            return_dict if return_dict is not None else self.config.use_return_dict
+        )
 
         transformer_outputs = self.model(
             input_ids,
@@ -1267,16 +1398,22 @@ class LlamaForSequenceClassification(LlamaPreTrainedModel):
             batch_size = inputs_embeds.shape[0]
 
         if self.config.pad_token_id is None and batch_size != 1:
-            raise ValueError("Cannot handle batch sizes > 1 if no padding token is defined.")
+            raise ValueError(
+                "Cannot handle batch sizes > 1 if no padding token is defined."
+            )
         if self.config.pad_token_id is None:
             sequence_lengths = -1
         else:
             if input_ids is not None:
-                sequence_lengths = (torch.ne(input_ids, self.config.pad_token_id).sum(-1) - 1).to(logits.device)
+                sequence_lengths = (
+                    torch.ne(input_ids, self.config.pad_token_id).sum(-1) - 1
+                ).to(logits.device)
             else:
                 sequence_lengths = -1
 
-        pooled_logits = logits[torch.arange(batch_size, device=logits.device), sequence_lengths]
+        pooled_logits = logits[
+            torch.arange(batch_size, device=logits.device), sequence_lengths
+        ]
 
         loss = None
         if labels is not None:
@@ -1284,7 +1421,9 @@ class LlamaForSequenceClassification(LlamaPreTrainedModel):
             if self.config.problem_type is None:
                 if self.num_labels == 1:
                     self.config.problem_type = "regression"
-                elif self.num_labels > 1 and (labels.dtype == torch.long or labels.dtype == torch.int):
+                elif self.num_labels > 1 and (
+                    labels.dtype == torch.long or labels.dtype == torch.int
+                ):
                     self.config.problem_type = "single_label_classification"
                 else:
                     self.config.problem_type = "multi_label_classification"
@@ -1297,7 +1436,9 @@ class LlamaForSequenceClassification(LlamaPreTrainedModel):
                     loss = loss_fct(pooled_logits, labels)
             elif self.config.problem_type == "single_label_classification":
                 loss_fct = CrossEntropyLoss()
-                loss = loss_fct(pooled_logits.view(-1, self.num_labels), labels.view(-1))
+                loss = loss_fct(
+                    pooled_logits.view(-1, self.num_labels), labels.view(-1)
+                )
             elif self.config.problem_type == "multi_label_classification":
                 loss_fct = BCEWithLogitsLoss()
                 loss = loss_fct(pooled_logits, labels)

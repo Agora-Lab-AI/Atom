@@ -37,7 +37,6 @@ def find_all_linear_names(model):
 
 
 def finetune(args):
-
     if args.output_dir:
         os.makedirs(args.output_dir, exist_ok=True)
 
@@ -51,59 +50,60 @@ def finetune(args):
         gradient_accumulation_steps=args.gradient_accumulate_every,
         mixed_precision="bf16",
         log_with="wandb" if args.wandb else None,
-        kwargs_handlers=[timeout]
+        kwargs_handlers=[timeout],
     )
     accelerator.init_trackers(
         project_name=args.wandb if args.wandb else "yarn",
     )
     accelerator.print(f"Total GPUS: {accelerator.num_processes}")
 
-    #init llama from pretrained conceptofmind/Yarn-Llama-2-13b-64k
+    # init llama from pretrained conceptofmind/Yarn-Llama-2-13b-64k
     config = LlamaConfig.from_pretrained("NousResearch/Yarn-Llama-2-13b-64k")
 
     config.rope_scaling = {
         "type": "yarn",
         "factor": args.yarn_factor,
-        "original_max_position_embeddings": 4096
+        "original_max_position_embeddings": 4096,
     }
 
     config.max_position_embeddings = int(args.yarn_factor * 4096)
 
     model = LlamaForCausalLM.from_pretrained(
-        "NousResearch/Yarn-Llama-2-13b-64k",
-        torch_dtype=torch.bfloat16,
-        config=config
+        "NousResearch/Yarn-Llama-2-13b-64k", torch_dtype=torch.bfloat16, config=config
     )
 
-    train_dataset = load_dataset(args.dataset, split='train')
+    train_dataset = load_dataset(args.dataset, split="train")
     train_loader = DataLoader(
         train_dataset,
         collate_fn=default_data_collator,
         shuffle=True,
-        batch_size=args.batch_size
+        batch_size=args.batch_size,
     )
 
     if args.lora:
         from peft import LoraConfig, TaskType, get_peft_model
+
         target_modules = find_all_linear_names(model)
         accelerator.print(f"LoRA target modules: {target_modules}")
         peft_config = LoraConfig(
-            task_type=TaskType.CAUSAL_LM, 
+            task_type=TaskType.CAUSAL_LM,
             inference_mode=False,
-            r=16, 
-            lora_alpha=64, 
-            lora_dropout=0.05, 
-            target_modules=target_modules
+            r=16,
+            lora_alpha=64,
+            lora_dropout=0.05,
+            target_modules=target_modules,
         )
         model = get_peft_model(model, peft_config)
         model.print_trainable_parameters()
 
-    #swap to adamw and linear scheduler
+    # swap to adamw and linear scheduler
     optim = StableAdamWUnfused(model.parameters(), lr=args.learning_rate)
-    
+
     scheduler = get_linear_schedule_with_warmup(
-        optim, num_training_steps=args.max_train_steps, num_warmup_steps=args.warmup_steps)
-    
+        optim,
+        num_training_steps=args.max_train_steps,
+        num_warmup_steps=args.warmup_steps,
+    )
 
     model, optim, train_loader, scheduler = accelerator.prepare(
         model, optim, train_loader, scheduler
@@ -126,19 +126,15 @@ def finetune(args):
 
     if args.resume_from_checkpoint:
         if args.resume_from_checkpoint is not None or args.resume_from_checkpoint != "":
-            accelerator.print(
-                f"Resuming from checkpoint {args.resume_from_checkpoint}")
+            accelerator.print(f"Resuming from checkpoint {args.resume_from_checkpoint}")
             accelerator.load_state(args.resume_from_checkpoint)
             path = os.path.basename(args.resume_from_checkpoint)
         training_difference = os.path.splitext(path)[0]
 
-        resume_step = (
-            int(training_difference.replace("step_", ""))
-        )
+        resume_step = int(training_difference.replace("step_", ""))
 
     if args.resume_from_checkpoint and resume_step is not None:
-        train_loader = accelerator.skip_first_batches(
-            train_loader, resume_step)
+        train_loader = accelerator.skip_first_batches(train_loader, resume_step)
         completed_steps += resume_step
         progress_bar.update(resume_step)
         accelerator.print(f"Resuming training from step {resume_step}")
@@ -152,8 +148,7 @@ def finetune(args):
             if accelerator.sync_gradients:
                 accelerator.log({"loss": loss.item()}, step=completed_steps)
                 if isinstance(args.grad_norm, float):
-                    accelerator.clip_grad_norm_(
-                        model.parameters(), args.grad_norm)
+                    accelerator.clip_grad_norm_(model.parameters(), args.grad_norm)
 
             optim.step()
             scheduler.step()
@@ -207,5 +202,7 @@ if __name__ == "__main__":
     args.add_argument("--lora", action="store_true")
     args.add_argument("--model", type=str, default="NousResearch/Yarn-Llama-2-13b-64k")
     args.add_argument("--yarn-factor", type=float, default=16.0)
-    args.add_argument("--dataset", type=str, default="kye/all-lucidrain-code-python-tokenized-65536-1")
+    args.add_argument(
+        "--dataset", type=str, default="kye/all-lucidrain-code-python-tokenized-65536-1"
+    )
     finetune(args.parse_args())

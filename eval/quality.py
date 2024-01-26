@@ -15,7 +15,13 @@ CHOICES = ["A", "B", "C", "D"]
 def get_prompt(sample):
     options = sample["options"]
     instruction = ZERO_SCROLLS_QUALITY_PROMPT.format(
-        story=sample["article"], question=sample["question"], a=options[0], b=options[1], c=options[2], d=options[3])
+        story=sample["article"],
+        question=sample["question"],
+        a=options[0],
+        b=options[1],
+        c=options[2],
+        d=options[3],
+    )
     return f"{instruction}\n\nAnswer: ("
 
 
@@ -23,20 +29,22 @@ def main(args):
     models = [x[0] for x in args.model]
 
     tokenizer = AutoTokenizer.from_pretrained(
-        models[0], model_max_length=sys.maxsize, trust_remote_code=True)
+        models[0], model_max_length=sys.maxsize, trust_remote_code=True
+    )
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.pad_token_id = tokenizer.eos_token_id
 
     dataset = load_dataset("emozilla/quality", split=args.split)
     dataset = dataset.map(lambda sample: {"prompt": get_prompt(sample)})
     if args.max_tokens:
-        dataset = dataset.filter(lambda sample: len(
-            tokenizer(sample["prompt"]).input_ids) <= args.max_tokens)
+        dataset = dataset.filter(
+            lambda sample: len(tokenizer(sample["prompt"]).input_ids) <= args.max_tokens
+        )
 
-    choice_tokens = [x[0] for x in tokenizer(
-        CHOICES, add_special_tokens=False).input_ids]
-    tokenizer.decode(
-        choice_tokens, clean_up_tokenization_spaces=True)
+    choice_tokens = [
+        x[0] for x in tokenizer(CHOICES, add_special_tokens=False).input_ids
+    ]
+    tokenizer.decode(choice_tokens, clean_up_tokenization_spaces=True)
 
     results = []
     for model in models:
@@ -54,18 +62,32 @@ def main(args):
             input_ids = tokenized_prompt.input_ids.to("cuda")
             attention_mask = tokenized_prompt.attention_mask.to("cuda")
 
-            output = loaded.generate(input_ids, attention_mask=attention_mask,
-                                    max_new_tokens=1, return_dict_in_generate=True, output_scores=True, pad_token_id=tokenizer.eos_token_id)
+            output = loaded.generate(
+                input_ids,
+                attention_mask=attention_mask,
+                max_new_tokens=1,
+                return_dict_in_generate=True,
+                output_scores=True,
+                pad_token_id=tokenizer.eos_token_id,
+            )
             scores = output.scores[0][0]
-            choice_scores = [x.cpu() for x in [scores[choice_tokens[0]],
-                                            scores[choice_tokens[1]], scores[choice_tokens[2]], scores[choice_tokens[3]]]]
+            choice_scores = [
+                x.cpu()
+                for x in [
+                    scores[choice_tokens[0]],
+                    scores[choice_tokens[1]],
+                    scores[choice_tokens[2]],
+                    scores[choice_tokens[3]],
+                ]
+            ]
             selection = numpy.argmax([x.float().cpu() for x in choice_scores])
 
             correct_answers += 1 if selection == sample["answer"] else 0
 
             if args.print_choices:
                 print(
-                    f"Choice: {CHOICES[selection]} Correct: {CHOICES[sample['answer']]}")
+                    f"Choice: {CHOICES[selection]} Correct: {CHOICES[sample['answer']]}"
+                )
 
             i += 1
             percent = (correct_answers / i) * 100.0
@@ -80,6 +102,7 @@ def main(args):
         with open(args.output_file, "w", encoding="utf-8") as f:
             f.write(",".join(models) + "\n")
             f.write(",".join(results) + "\n")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -4,7 +4,9 @@ from trl import SFTTrainer
 from peft import LoraConfig
 
 
-model = AutoModelForCausalLM.from_pretrained("NousResearch/Yarn-Llama-2-13b-64k", load_in_4bit=True)
+model = AutoModelForCausalLM.from_pretrained(
+    "NousResearch/Yarn-Llama-2-13b-64k", load_in_4bit=True
+)
 
 dataset = load_dataset("kye/all-lucidrain-code-python-tokenized-65536-1")
 

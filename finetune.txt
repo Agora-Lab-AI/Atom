@@ -1,0 +1,83 @@
+$ together finetune create --training-file file-f01cfa42-d4e8-4c4d-a9bf-b02cb8f4f376 --model HuggingFaceH4/zephyr-7b-beta --wandb-api-key 8e0be448d8eeb3e161c8275891657641278ecf49
+
+
+e8-4c4d-a9bf-b02cb8f4f376 --model HuggingFaceH4/zephyr-7b-beta --wandb-api-key 8e0be448d8eeb3e161c8275891657641278ecf49 
+Job creation details:
+{   'batch_size': 32,
+    'learning_rate': 1e-05,
+    'model': 'HuggingFaceH4/zephyr-7b-beta',
+    'n_checkpoints': 1,
+    'n_epochs': 4,
+    'suffix': None,
+    'training_file': 'file-f01cfa42-d4e8-4c4d-a9bf-b02cb8f4f376',
+    'wandb_key': '8e0be448d8eeb3e161c8275891657641278ecf49'}
+
+Do you want to submit the job? [y/N]y
+{
+    "training_file": "file-f01cfa42-d4e8-4c4d-a9bf-b02cb8f4f376",
+    "validation_file": "",
+    "model_output_name": "kye@apac.ai/zephyr-7b-beta-2024-01-26-22-20-56",
+    "model_output_path": "s3://together-dev/finetune/6599053cd541baeacd3d24d7/kye@apac.ai/zephyr-7b-beta-2024-01-26-22-20-56/ft-a0048fa5-a431-415a-98c5-7929521a89b6",
+    "Suffix": "",
+    "model": "HuggingFaceH4/zephyr-7b-beta",
+    "n_epochs": 4,
+    "n_checkpoints": 1,
+    "batch_size": 32,
+    "learning_rate": 1e-05,
+    "user_id": "6599053cd541baeacd3d24d7",
+    "lora": false,
+    "lora_r": 8,
+    "lora_alpha": 8,
+    "lora_dropout": 0,
+    "staring_epoch": 0,
+    "training_offset": 0,
+    "checkspoint_path": "",
+    "random_seed": "",
+    "created_at": "2024-01-26T22:20:56.331Z",
+    "updated_at": "2024-01-26T22:20:56.331Z",
+    "status": "pending",
+    "owner_address": "0x6832aa4c50d75ec16be7ba77af941c7c43718da4",
+    "id": "ft-a0048fa5-a431-415a-98c5-7929521a89b6",
+    "job_id": "",
+    "token_count": 0,
+    "param_count": 0,
+    "total_price": 0,
+    "epochs_completed": 0,
+    "events": [
+        {
+            "object": "fine-tune-event",
+            "created_at": "2024-01-26T22:20:56.331Z",
+            "level": "",
+            "message": "Fine tune request created",
+            "type": "JOB_PENDING",
+            "param_count": 0,
+            "token_count": 0,
+            "wandb_url": "",
+            "checkpoint_path": "",
+            "model_path": "",
+            "training_offset": 0,
+            "hash": ""
+        }
+    ],
+    "queue_depth": 0,
+    "wandb_key": "8e0be448d8eeb3e161c8275891657641278ecf49",
+    "wandb_project_name": "",
+    "wandb_url": "",
+    "enable_checkpoints": false,
+    "internal_flags": "",
+    "UsedModelName": "",
+    "TrainingFileNumLines": 0,
+    "TrainingFileSize": 237696949,
+    "job_stats": {
+        "FtUserTime": "",
+        "FtSysTime": "",
+        "FtMaxRss": 0,
+        "FtMinPgFlt": 0,
+        "FtMajPgFlt": 0,
+        "FtInBlock": 0,
+        "FtOutBlock": 0,
+        "FtNvCsw": 0,
+        "FtNivCsw": 0
+    }
+}
+defalt@owl Atom % 

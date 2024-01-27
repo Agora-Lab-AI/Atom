@@ -2,14 +2,15 @@ from datasets import load_dataset
 import jsonlines
 
 # Load the dataset
-dataset = load_dataset("glaiveai/glaive-function-calling-v2")
+# dataset = load_dataset("glaiveai/glaive-function-calling-v2")
+dataset = load_dataset("rizerphe/glaive-function-calling-v2-llama")
 
-# Function to concatenate specific fields into a single 'text' field
+# Select the 'train' split
+dataset = dataset['train']
+
 def concatenate_fields(example):
-    system = example['system'] if example['system'] is not None else ""
-    stringlengths = example['stringlengths'] if example['stringlengths'] is not None else ""
-    text = system + " " + stringlengths
-    return {'text': text.strip()}
+    chat = example['text'] if example['text'] is not None else ""
+    return chat.strip()
 
 # Apply the function to the dataset
 dataset = dataset.map(concatenate_fields)

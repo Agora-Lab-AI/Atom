@@ -1,19 +1,3 @@
-[![Multi-Modality](agorabanner.png)](https://discord.gg/qUtxnK2NMf)
-
-# Atom
-Atom is a finetuned fork of YARN LLAMA to create better LLMS through Pytorch Data!
-
-
-## Installation
-
-You can install the package using pip
-
-```bash
-pip install atom-torch
-```
-
-## Usage
-```python
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
@@ -66,34 +50,3 @@ input_ids = tokenizer.encode(task, return_tensors="pt")
 output = model.generate(input_ids.to(device), max_length=128, temperature=0.7).cpu()
 output_text = tokenizer.decode(output[0], skip_special_tokens=True)
 print(output_text)
-
-
-```
-
-### Training
-
-- To train the models, run `accelerate config` and enable DeepSpeed acceleration. `deepspeed/zero3.json` was the configuration file used for training.0
-- Then run accelerate launch `accelerate launch finetune.py`
-
-
-We're finetuning this [model](https://huggingface.co/NousResearch/Yarn-Llama-2-13b-64k) on this [dataset](https://huggingface.co/datasets/kye/all-lucidrain-code-python-tokenized-65536-1)
-
-```sh
-./run.sh
-```
-
-- [Dataset](kye/all-lucidrain-code-python-tokenized-65536-1)
-```
-
-### Citation
-
-```
-@misc{peng2023yarn,
-      title={YaRN: Efficient Context Window Extension of Large Language Models}, 
-      author={Bowen Peng and Jeffrey Quesnelle and Honglu Fan and Enrico Shippole},
-      year={2023},
-      eprint={2309.00071},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL}
-}
-```

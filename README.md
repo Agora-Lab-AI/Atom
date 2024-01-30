@@ -1,10 +1,16 @@
 [![Multi-Modality](agorabanner.png)](https://discord.gg/qUtxnK2NMf)
 
 # Atom
-Atom is a finetuned fork of YARN LLAMA to create better LLMS through Pytorch Data!
+a suite of finetuned LLMs for atomically precise function calling 🧪
+
+✅ Massive function calling dataset of over 20M samples.
+
+✅ First Model: Atom-Z-Tiny - Zephr trained on 100k samples
+
+✅ Vision function calling coming soon
 
 
-## Installation
+## Install
 
 You can install the package using pip
 

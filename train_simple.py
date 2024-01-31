@@ -1,4 +1,4 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM
 from datasets import load_dataset
 from trl import SFTTrainer
 from peft import LoraConfig

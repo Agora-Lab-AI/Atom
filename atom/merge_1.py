@@ -6,16 +6,18 @@ import jsonlines
 dataset = load_dataset("rizerphe/glaive-function-calling-v2-llama")
 
 # Select the 'train' split
-dataset = dataset['train']
+dataset = dataset["train"]
+
 
 def concatenate_fields(example):
-    chat = example['text'] if example['text'] is not None else ""
+    chat = example["text"] if example["text"] is not None else ""
     return chat.strip()
+
 
 # Apply the function to the dataset
 dataset = dataset.map(concatenate_fields)
 
 # Write the dataset to a JSONL file
-with jsonlines.open('glaive_function_calling_v2.jsonl', mode='w') as writer:
+with jsonlines.open("glaive_function_calling_v2.jsonl", mode="w") as writer:
     for example in dataset:
         writer.write(example)

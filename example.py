@@ -6,8 +6,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 tokenizer = AutoTokenizer.from_pretrained("kye/Atom-Z-Tiny-7B")
 
 model = AutoModelForCausalLM.from_pretrained(
-  "kye/Atom-Z-Tiny-7B", 
-  trust_remote_code=True, 
+    "kye/Atom-Z-Tiny-7B",
+    trust_remote_code=True,
 ).to(device)
 
 task = """

@@ -30,11 +30,12 @@ datasets = [
 
 # Function to concatenate specific fields into a single 'text' field
 def concatenate_fields(example):
-    python_code = example['python_code'] if example['python_code'] is not None else ""
-    repo_name = example['repo_name'] if example['repo_name'] is not None else ""
-    file_path = example['file_path'] if example['file_path'] is not None else ""
+    python_code = example["python_code"] if example["python_code"] is not None else ""
+    repo_name = example["repo_name"] if example["repo_name"] is not None else ""
+    file_path = example["file_path"] if example["file_path"] is not None else ""
     text = python_code + " " + repo_name + " " + file_path
-    return {'text': text.strip()}
+    return {"text": text.strip()}
+
 
 # Load and merge datasets
 merged_data = []
@@ -47,6 +48,6 @@ for dataset_name in datasets:
         print(f"Error processing dataset {dataset_name}: {str(e)}")
 
 # Write merged data to JSONL file
-with jsonlines.open('merged_data.jsonl', mode='w') as writer:
+with jsonlines.open("merged_data.jsonl", mode="w") as writer:
     for example in merged_data:
         writer.write(example)

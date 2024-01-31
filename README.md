@@ -84,22 +84,19 @@ print(output_text)
 
 We're finetuning this [model](https://huggingface.co/NousResearch/Yarn-Llama-2-13b-64k) on this [dataset](https://huggingface.co/datasets/kye/all-lucidrain-code-python-tokenized-65536-1)
 
-```sh
-./run.sh
-```
+`sh./run.sh`
 
 - [Dataset](kye/all-lucidrain-code-python-tokenized-65536-1)
-```
 
 ### Citation
 
-```
+```bibtex
 @misc{peng2023yarn,
-      title={YaRN: Efficient Context Window Extension of Large Language Models}, 
-      author={Bowen Peng and Jeffrey Quesnelle and Honglu Fan and Enrico Shippole},
-      year={2023},
-      eprint={2309.00071},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL}
+    title={YaRN: Efficient Context Window Extension of Large Language Models}, 
+    author={Bowen Peng and Jeffrey Quesnelle and Honglu Fan and Enrico Shippole},
+    year={2023},
+    eprint={2309.00071},
+    archivePrefix={arXiv},
+    primaryClass={cs.CL}
 }
 ```
